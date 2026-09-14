@@ -19,7 +19,9 @@ env/
 .venv/
 
 # Database files
+data/
 *.db
+*.db-*
 *.sqlite
 *.sqlite3
 
