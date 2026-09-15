@@ -283,10 +283,22 @@ PROFESSION_CATEGORY_SUGGESTIONS: dict[str, list[dict]] = {
 # UI / Theme
 # ---------------------------------------------------------------------------
 
-THEME_PRIMARY_COLOR: str = "Indigo"
-THEME_ACCENT_COLOR: str = "Amber"
-THEME_STYLE: str = "Light"  # "Light" or "Dark"
+THEME_PRIMARY_COLOR: str = "DeepPurple"
+THEME_ACCENT_COLOR: str = "Teal"
+THEME_STYLE: str = "Dark"  # "Light" or "Dark"
 
 APP_NAME: str = "Spendora"
 APP_VERSION: str = "0.1.0"
+
+APP_BG_DARK: tuple = (8 / 255, 15 / 255, 25 / 255, 1)
+APP_BG_PANEL: tuple = (18 / 255, 28 / 255, 42 / 255, 1)
+APP_BG_CARD: tuple = (27 / 255, 38 / 255, 54 / 255, 1)
+APP_LINE: tuple = (110 / 255, 128 / 255, 160 / 255, 0.38)
+APP_TEXT: tuple = (240 / 255, 244 / 255, 255 / 255, 1)
+APP_MUTED_TEXT: tuple = (160 / 255, 176 / 255, 196 / 255, 1)
+APP_ACCENT: tuple = (144 / 255, 88 / 255, 255 / 255, 1)
+APP_ACCENT_2: tuple = (79 / 255, 175 / 255, 255 / 255, 1)
+APP_SUCCESS: tuple = (75 / 255, 202 / 255, 156 / 255, 1)
+APP_DANGER: tuple = (239 / 255, 92 / 255, 92 / 255, 1)
+APP_ORANGE: tuple = (248 / 255, 135 / 255, 89 / 255, 1)
 

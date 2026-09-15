@@ -92,3 +92,4 @@ def test_complete_onboarding_pipeline(isolated_db):
     # 6. Verify stored categories
     user_cats = category_service.list_categories(user.id)
     assert len(user_cats) == 5
+

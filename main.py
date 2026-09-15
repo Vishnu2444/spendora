@@ -61,6 +61,7 @@ from screens.onboarding.welcome_screen import WelcomeScreen
 from screens.onboarding.category_setup_screen import CategorySetupScreen
 from screens.dashboard.dashboard_screen import DashboardScreen
 from screens.transactions.transactions_screen import TransactionsScreen
+from screens.transactions.add_edit_transaction_screen import AddEditTransactionScreen
 from screens.analytics.analytics_screen import AnalyticsScreen
 from screens.personalization.personalization_screen import PersonalizationScreen
 from screens.assistant.assistant_screen import AssistantScreen
@@ -154,6 +155,18 @@ class MainScreen(MDScreen):
         if self._screen_manager.has_screen(target_name):
             self._screen_manager.current = target_name
 
+    def switch_tab(self, tab_name: str) -> None:
+        """Programmatically switch tabs inside MainScreen."""
+        target = tab_name.lower()
+        if self._screen_manager.has_screen(target):
+            self._screen_manager.current = target
+
+    def on_enter(self, *args) -> None:
+        """Trigger refresh on the active child screen when returning to MainScreen."""
+        current_screen = self._screen_manager.current_screen
+        if current_screen and hasattr(current_screen, "refresh"):
+            current_screen.refresh()
+
 
 # ---------------------------------------------------------------------------
 # Spendora Application
@@ -171,7 +184,10 @@ class SpendoraApp(MDApp):
         # ---- Theme ----
         self.theme_cls.theme_style = THEME_STYLE
         self.theme_cls.primary_palette = THEME_PRIMARY_COLOR
+        self.theme_cls.accent_palette = THEME_ACCENT_COLOR
+        self.theme_cls.material_style = "M3"
         self.title = APP_NAME
+        Window.clearcolor = (8 / 255, 15 / 255, 25 / 255, 1)
 
         # ---- Database ----
         try:
@@ -197,14 +213,16 @@ class SpendoraApp(MDApp):
         # ---- Screen Manager ----
         sm = ScreenManager(transition=SlideTransition())
 
-        # Onboarding screens (always registered — routing decides which to show first).
+        # Onboarding and main screens
         welcome = WelcomeScreen()
         category_setup = CategorySetupScreen()
         main = MainScreen()
+        add_edit_transaction = AddEditTransactionScreen()
 
         sm.add_widget(welcome)
         sm.add_widget(category_setup)
         sm.add_widget(main)
+        sm.add_widget(add_edit_transaction)
 
         # ---- Routing ----
         # If a user already exists and has completed onboarding → go to main.
@@ -220,6 +238,13 @@ class SpendoraApp(MDApp):
             logger.info("No returning user found — starting onboarding.")
 
         return sm
+
+    def switch_tab(self, tab_name: str) -> None:
+        """Switch tab inside MainScreen."""
+        if self.root and self.root.has_screen("main"):
+            main_screen = self.root.get_screen("main")
+            if hasattr(main_screen, "switch_tab"):
+                main_screen.switch_tab(tab_name)
 
     def on_start(self) -> None:
         logger.info("%s %s started.", APP_NAME, APP_VERSION)

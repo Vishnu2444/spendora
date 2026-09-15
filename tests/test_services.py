@@ -166,3 +166,4 @@ class TestCategoryService:
         cat_service.create_category(user.id, "Shopping")
         with pytest.raises(ValueError, match="already exists"):
             cat_service.create_category(user.id, "Shopping")
+

@@ -98,3 +98,4 @@ python main.py
 - **Phase 6**: Privacy-first AI Financial Assistant with validated queries and deterministic explanations.
 - **Phase 7**: Historical trend prediction and recurring payment forecasting.
 - **Phase 8**: Security hardening, packaging, and Android APK generation via Buildozer.
+
