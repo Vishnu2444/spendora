@@ -59,3 +59,4 @@ class DistributionBar(Widget):
                     size=(fill_w, self.height),
                     radius=[dp(self.height / 2)],
                 )
+

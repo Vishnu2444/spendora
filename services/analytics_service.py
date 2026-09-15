@@ -328,3 +328,4 @@ class AnalyticsService:
             return 100.0 if current > 0 else 0.0
         pct = ((current - prior) / prior) * 100.0
         return round(pct, 1)
+

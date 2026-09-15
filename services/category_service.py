@@ -35,11 +35,11 @@ class CategoryService:
         with get_session() as session:
             repo = CategoryRepository(session)
             cats = repo.list_for_user(user_id, active_only=True)
-            # Expunge all to make usable outside session.
+            # Expunge all to make usable outside session, filtering to active subcategories.
             for cat in cats:
-                for sub in cat.subcategories:
-                    session.expunge(sub)
+                active_subs = [s for s in cat.subcategories if s.is_active]
                 session.expunge(cat)
+                cat.subcategories = active_subs
             return cats
 
     def get_category(self, category_id: int) -> Optional[Category]:
@@ -212,22 +212,43 @@ class CategoryService:
     # Update
     # ------------------------------------------------------------------
 
-    def rename_category(self, category_id: int, new_name: str) -> Category:
-        """Rename an existing category."""
-        clean_name = validate_category_name(new_name)
-
+    def update_category(
+        self,
+        category_id: int,
+        name: Optional[str] = None,
+        color: Optional[str] = None,
+        icon: Optional[str] = None,
+    ) -> Category:
+        """Update category name, color, and/or icon."""
         with get_session() as session:
             repo = CategoryRepository(session)
             cat = repo.get_by_id(category_id)
             if cat is None:
                 raise ValueError(f"Category {category_id} not found.")
-            cat.name = clean_name
+
+            if name is not None:
+                clean_name = validate_category_name(name)
+                existing = repo.get_by_name(cat.user_id, clean_name)
+                if existing is not None and existing.id != category_id:
+                    raise ValueError(f"A category named '{clean_name}' already exists.")
+                cat.name = clean_name
+
+            if color is not None:
+                cat.color = color
+
+            if icon is not None:
+                cat.icon = icon
+
             repo.update(cat)
             session.commit()
             session.refresh(cat)
             session.expunge(cat)
 
         return cat
+
+    def rename_category(self, category_id: int, new_name: str) -> Category:
+        """Rename an existing category."""
+        return self.update_category(category_id, name=new_name)
 
     def rename_subcategory(self, subcategory_id: int, new_name: str) -> Subcategory:
         """Rename an existing subcategory."""

@@ -311,3 +311,4 @@ class TestAnalyticsService:
         assert insights["largest_expense"] is None
         assert insights["expense_transaction_count"] == 0
         assert insights["average_transaction_paise"] == 0
+

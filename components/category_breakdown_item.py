@@ -168,3 +168,4 @@ class CategoryBreakdownItem(MDCard):
             "tag": "🏷",
         }
         return _MAP.get(icon_name, "🏷")
+
