@@ -204,3 +204,4 @@ class TestAIService:
         cfg = call_kwargs["config"]
         assert "VERIFIED FINANCIAL DATA" in cfg.system_instruction
         assert "Alex" in cfg.system_instruction
+

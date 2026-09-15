@@ -144,3 +144,4 @@ class ChatBubble(MDBoxLayout):
             self.add_widget(bubble)
 
             self.add_widget(MDBoxLayout())  # Right spacer
+
