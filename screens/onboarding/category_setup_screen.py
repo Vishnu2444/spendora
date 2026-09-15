@@ -25,6 +25,7 @@ from kivymd.uix.snackbar import MDSnackbar, MDSnackbarText
 from database.models import CategorySource, User
 from services.category_service import CategoryService
 from services.profile_service import ProfileService
+from services.ai_service import AIService
 
 logger = logging.getLogger(__name__)
 
@@ -218,7 +219,11 @@ class CategorySetupScreen(MDScreen):
         self._chips_container.clear_widgets()
         self._chips = []
 
-        suggestions = self._category_service.get_suggestions_for_profession(self._user.profession)
+        ai_service = AIService()
+        suggestions = ai_service.predict_categories(
+            profession=self._user.profession,
+            custom_profession=self._user.profession_custom,
+        )
 
         if not suggestions:
             self._chips_container.add_widget(MDLabel(
@@ -259,10 +264,11 @@ class CategorySetupScreen(MDScreen):
 
         try:
             if accepted:
+                source = CategorySource.AI if AIService().is_configured() else CategorySource.SYSTEM
                 self._category_service.accept_suggestions(
                     user_id=self._user.id,
                     accepted_suggestions=accepted,
-                    source=CategorySource.SYSTEM,
+                    source=source,
                 )
             self._profile_service.mark_onboarding_complete(self._user.id)
         except Exception as exc:

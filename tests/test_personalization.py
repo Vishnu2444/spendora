@@ -172,3 +172,4 @@ class TestPersonalization:
         assert updated.currency == "USD"
         assert updated.monthly_income_paise == 2500_00
         assert updated.fixed_expenses_paise == 800_00
+

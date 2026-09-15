@@ -235,3 +235,4 @@ class CategoryManagementCard(MDCard):
             "tag": "🏷",
         }
         return _MAP.get(icon_name, "🏷")
+

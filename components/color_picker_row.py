@@ -97,3 +97,4 @@ class ColorPickerRow(MDBoxLayout):
         g = int(hex_str[2:4], 16) / 255.0
         b = int(hex_str[4:6], 16) / 255.0
         return (r, g, b, 1.0)
+
