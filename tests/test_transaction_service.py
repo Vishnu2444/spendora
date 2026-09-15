@@ -371,3 +371,4 @@ class TestTransactionService:
 
         with pytest.raises(ValueError, match="Cannot delete another user"):
             service.delete_transaction(txn.id, user_id=u2_id)
+

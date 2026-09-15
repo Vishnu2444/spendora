@@ -186,6 +186,48 @@ class TransactionRepository:
             
         return q.all()
 
+    def get_daily_totals(
+        self,
+        user_id: int,
+        start_date: date,
+        end_date: date,
+    ) -> list[tuple[date, TransactionType, int]]:
+        """Return (transaction_date, transaction_type, sum_paise) ordered by date ASC."""
+        q = (
+            self._session.query(
+                Transaction.transaction_date,
+                Transaction.transaction_type,
+                func.sum(Transaction.amount_paise).label("total_paise"),
+            )
+            .filter(Transaction.user_id == user_id)
+            .filter(Transaction.transaction_date >= start_date)
+            .filter(Transaction.transaction_date <= end_date)
+            .group_by(Transaction.transaction_date, Transaction.transaction_type)
+            .order_by(Transaction.transaction_date.asc())
+        )
+        return q.all()
+
+    def get_largest_expense(
+        self,
+        user_id: int,
+        start_date: date,
+        end_date: date,
+    ) -> Optional[Transaction]:
+        """Return the single expense transaction with the highest amount in the period."""
+        return (
+            self._session.query(Transaction)
+            .options(
+                joinedload(Transaction.category),
+                joinedload(Transaction.subcategory),
+            )
+            .filter(Transaction.user_id == user_id)
+            .filter(Transaction.transaction_type == TransactionType.EXPENSE)
+            .filter(Transaction.transaction_date >= start_date)
+            .filter(Transaction.transaction_date <= end_date)
+            .order_by(Transaction.amount_paise.desc())
+            .first()
+        )
+
     # ------------------------------------------------------------------
     # Writes
     # ------------------------------------------------------------------

@@ -199,3 +199,4 @@ def test_full_phase2_transaction_and_calculation_flow(e2e_db):
     assert sept_post_delete["net_paise"] == 11000_00
     assert sept_post_delete["closing_balance_paise"] == 66000_00
     assert sept_post_delete["transaction_count"] == 2
+

@@ -244,3 +244,4 @@ class TestCalculationService:
 
         assert len(top_cats) == 1
         assert top_cats[0][0] == "Food"
+
