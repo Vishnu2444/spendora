@@ -161,12 +161,13 @@ class CategoryManagementCard(MDCard):
                 padding=[dp(42), dp(2), dp(4), dp(2)],
             )
             for sub in self.category.subcategories:
-                sub_chip = MDCard(
-                    style="filled",
+                sub_chip = MDBoxLayout(
+                    orientation="horizontal",
+                    adaptive_width=True,
+                    size_hint_y=None,
+                    height=dp(26),
                     md_bg_color=(0.18, 0.22, 0.32, 0.8),
                     radius=[dp(8)],
-                    size_hint=(None, None),
-                    height=dp(26),
                     padding=[dp(8), dp(2), dp(6), dp(2)],
                 )
                 chip_box = MDBoxLayout(orientation="horizontal", spacing=dp(4), adaptive_width=True)

@@ -42,8 +42,7 @@ class ChatBubble(MDBoxLayout):
         if is_user:
             self.add_widget(MDBoxLayout())  # Left spacer to push user bubble right
 
-            bubble = MDCard(
-                style="filled",
+            bubble = MDBoxLayout(
                 md_bg_color=(0.35, 0.28, 0.58, 0.95),
                 radius=[dp(16), dp(16), dp(4), dp(16)],
                 padding=[dp(14), dp(10), dp(14), dp(10)],
@@ -99,8 +98,7 @@ class ChatBubble(MDBoxLayout):
             )
             self.add_widget(avatar)
 
-            bubble = MDCard(
-                style="filled",
+            bubble = MDBoxLayout(
                 md_bg_color=APP_BG_CARD,
                 radius=[dp(16), dp(16), dp(16), dp(4)],
                 padding=[dp(14), dp(12), dp(14), dp(12)],

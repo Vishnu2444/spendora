@@ -140,8 +140,7 @@ class AssistantScreen(MDScreen):
         root.add_widget(self._scroll)
 
         # --- Thinking / Loading Indicator ---
-        self._loading_card = MDCard(
-            style="filled",
+        self._loading_card = MDBoxLayout(
             md_bg_color=APP_BG_CARD,
             radius=[dp(10)],
             padding=[dp(14), dp(8), dp(14), dp(8)],

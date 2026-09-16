@@ -230,9 +230,8 @@ class PersonalizationScreen(MDScreen):
             )
             self._body.add_widget(card)
 
-    def _build_category_creator_card(self) -> MDCard:
-        card = MDCard(
-            style="filled",
+    def _build_category_creator_card(self) -> MDBoxLayout:
+        card = MDBoxLayout(
             md_bg_color=APP_BG_CARD,
             radius=[dp(14)],
             padding=[dp(16), dp(14), dp(16), dp(14)],
@@ -290,9 +289,8 @@ class PersonalizationScreen(MDScreen):
         card.add_widget(layout)
         return card
 
-    def _build_subcategory_creator_card(self) -> MDCard:
-        card = MDCard(
-            style="filled",
+    def _build_subcategory_creator_card(self) -> MDBoxLayout:
+        card = MDBoxLayout(
             md_bg_color=APP_BG_CARD,
             radius=[dp(14)],
             padding=[dp(16), dp(14), dp(16), dp(14)],

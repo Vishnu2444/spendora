@@ -283,8 +283,8 @@ PROFESSION_CATEGORY_SUGGESTIONS: dict[str, list[dict]] = {
 # UI / Theme
 # ---------------------------------------------------------------------------
 
-THEME_PRIMARY_COLOR: str = "DeepPurple"
-THEME_ACCENT_COLOR: str = "Teal"
+THEME_PRIMARY_COLOR: str = "#9058FF"
+THEME_ACCENT_COLOR: str = "#4ECDC4"
 THEME_STYLE: str = "Dark"  # "Light" or "Dark"
 
 APP_NAME: str = "Spendora"
