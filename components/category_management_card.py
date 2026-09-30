@@ -1,239 +1,149 @@
 """
-Spendora — CategoryManagementCard component.
+Spendora (Trackz) — CategoryManagementCard component (Flet).
 
-An interactive card in the Personalization screen for managing a category:
-- Icon, color badge, and name
-- Source badge (USER / SYSTEM / AI)
-- Subcategories display with deletion chips
-- Quick actions: Add Subcategory, Edit, Delete
+Matches Google Stitch Personalization category cards:
+- Clean card with 1px border (#E2E8F0)
+- Icon circle + Name + Edit/Delete actions
+- Subcategory / label chips
+- Add subcategory action
 """
 
 from __future__ import annotations
 
 from typing import Callable, Optional
 
-from kivy.metrics import dp
-from kivymd.uix.boxlayout import MDBoxLayout
-from kivymd.uix.button import MDButton, MDButtonText
-from kivymd.uix.card import MDCard
-from kivymd.uix.label import MDLabel
+import flet as ft
 
 from config.settings import (
-    APP_BG_CARD,
-    APP_DANGER,
-    APP_MUTED_TEXT,
-    APP_TEXT,
+    COLOR_ERROR,
+    COLOR_ON_SURFACE,
+    COLOR_OUTLINE_VARIANT,
+    COLOR_PRIMARY_CONTAINER,
+    COLOR_SECONDARY,
+    COLOR_SURFACE_CARD,
+    COLOR_SURFACE_CONTAINER,
 )
 from database.models import Category
 
 
-class CategoryManagementCard(MDCard):
-    """Card for category display, subcategory listing, and management actions."""
+def build_category_management_card(
+    category: Category,
+    on_edit: Optional[Callable[[Category], None]] = None,
+    on_delete: Optional[Callable[[Category], None]] = None,
+    on_add_subcategory: Optional[Callable[[Category], None]] = None,
+    on_delete_subcategory: Optional[Callable[[int], None]] = None,
+) -> ft.Container:
+    """Build a Stitch-styled card for category and subcategory management."""
+    from components.transaction_card import _resolve_icon
 
-    def __init__(
-        self,
-        category: Category,
-        on_edit: Optional[Callable[[Category], None]] = None,
-        on_delete: Optional[Callable[[Category], None]] = None,
-        on_add_subcategory: Optional[Callable[[Category], None]] = None,
-        on_delete_subcategory: Optional[Callable[[int], None]] = None,
-        **kwargs,
-    ) -> None:
-        super().__init__(
-            style="filled",
-            md_bg_color=APP_BG_CARD,
-            radius=[dp(14)],
-            padding=[dp(14), dp(12), dp(14), dp(12)],
-            size_hint_y=None,
-            **kwargs,
-        )
-        self.category = category
-        self._on_edit = on_edit
-        self._on_delete = on_delete
-        self._on_add_subcategory = on_add_subcategory
-        self._on_delete_subcategory = on_delete_subcategory
+    flet_icon = _resolve_icon(category.icon or "payments")
 
-        # Calculate height based on subcategories
-        has_subs = bool(category.subcategories)
-        self.height = dp(115) if has_subs else dp(74)
-
-        self._build()
-
-    def _build(self) -> None:
-        layout = MDBoxLayout(orientation="vertical", spacing=dp(8))
-
-        # Top row: Category badge, name, source, and action buttons
-        top_row = MDBoxLayout(orientation="horizontal", adaptive_height=True, spacing=dp(8))
-
-        color_hex = self.category.color or "#4ECDC4"
-        icon_box = MDCard(
-            style="filled",
-            md_bg_color=self._hex_to_rgba(color_hex, alpha=0.2),
-            size_hint=(None, None),
-            size=(dp(34), dp(34)),
-            radius=[dp(17)],
-            pos_hint={"center_y": 0.5},
-        )
-        icon_box.add_widget(
-            MDLabel(
-                text=self._icon_char(self.category.icon or "tag"),
-                halign="center",
-                valign="middle",
-                theme_text_color="Custom",
-                text_color=self._hex_to_rgba(color_hex, alpha=1.0),
-                font_style="Title",
-                role="medium",
-            )
-        )
-        top_row.add_widget(icon_box)
-
-        # Name and source label
-        name_box = MDBoxLayout(orientation="vertical", adaptive_height=True, spacing=dp(1), pos_hint={"center_y": 0.5})
-        name_box.add_widget(
-            MDLabel(
-                text=self.category.name,
-                font_style="Body",
-                role="large",
-                adaptive_height=True,
-                theme_text_color="Custom",
-                text_color=APP_TEXT,
+    # Subcategory chips
+    sub_chips = []
+    active_subs = [s for s in (category.subcategories or []) if s.is_active]
+    for sub in active_subs:
+        sub_chips.append(
+            ft.Chip(
+                label=ft.Text(sub.name, size=12, color=COLOR_ON_SURFACE),
+                bgcolor=COLOR_SURFACE_CONTAINER,
+                border_side=ft.BorderSide(1, COLOR_OUTLINE_VARIANT),
+                delete_icon_color=COLOR_ERROR,
+                on_delete=lambda e, sid=sub.id: on_delete_subcategory(sid)
+                if on_delete_subcategory
+                else None,
             )
         )
 
-        source_text = self.category.source.value if hasattr(self.category.source, "value") else str(self.category.source)
-        name_box.add_widget(
-            MDLabel(
-                text=source_text,
-                font_style="Label",
-                role="small",
-                adaptive_height=True,
-                theme_text_color="Custom",
-                text_color=APP_MUTED_TEXT,
-            )
+    sub_row = (
+        ft.Row(wrap=True, spacing=6, run_spacing=6, controls=sub_chips)
+        if sub_chips
+        else ft.Text(
+            "No subcategories",
+            color=COLOR_SECONDARY,
+            size=12,
+            italic=True,
         )
-        top_row.add_widget(name_box)
+    )
 
-        top_row.add_widget(MDBoxLayout())  # Spacer
-
-        # Add Subcategory button
-        add_sub_btn = MDButton(
-            style="text",
-            on_release=lambda *_: self._on_add_subcategory(self.category) if self._on_add_subcategory else None,
-            pos_hint={"center_y": 0.5},
-        )
-        add_sub_btn.add_widget(MDButtonText(text="+ Sub", font_style="Label", role="small"))
-        top_row.add_widget(add_sub_btn)
-
-        # Edit button
-        edit_btn = MDButton(
-            style="text",
-            on_release=lambda *_: self._on_edit(self.category) if self._on_edit else None,
-            pos_hint={"center_y": 0.5},
-        )
-        edit_btn.add_widget(MDButtonText(text="✎", font_style="Label", role="medium"))
-        top_row.add_widget(edit_btn)
-
-        # Delete button
-        del_btn = MDButton(
-            style="text",
-            on_release=lambda *_: self._on_delete(self.category) if self._on_delete else None,
-            pos_hint={"center_y": 0.5},
-        )
-        del_btn.add_widget(
-            MDButtonText(
-                text="✕",
-                font_style="Label",
-                role="medium",
-                theme_text_color="Custom",
-                text_color=APP_DANGER,
-            )
-        )
-        top_row.add_widget(del_btn)
-
-        layout.add_widget(top_row)
-
-        # Subcategories row (if any)
-        if self.category.subcategories:
-            sub_row = MDBoxLayout(
-                orientation="horizontal",
-                adaptive_height=True,
-                spacing=dp(6),
-                padding=[dp(42), dp(2), dp(4), dp(2)],
-            )
-            for sub in self.category.subcategories:
-                sub_chip = MDBoxLayout(
-                    orientation="horizontal",
-                    adaptive_width=True,
-                    size_hint_y=None,
-                    height=dp(26),
-                    md_bg_color=(0.18, 0.22, 0.32, 0.8),
-                    radius=[dp(8)],
-                    padding=[dp(8), dp(2), dp(6), dp(2)],
-                )
-                chip_box = MDBoxLayout(orientation="horizontal", spacing=dp(4), adaptive_width=True)
-                chip_box.add_widget(
-                    MDLabel(
-                        text=sub.name,
-                        font_style="Body",
-                        role="small",
-                        theme_text_color="Custom",
-                        text_color=APP_TEXT,
-                        adaptive_width=True,
-                    )
-                )
-
-                del_sub = MDLabel(
-                    text="×",
-                    font_style="Label",
-                    role="small",
-                    theme_text_color="Custom",
-                    text_color=APP_MUTED_TEXT,
-                    adaptive_width=True,
-                )
-                chip_box.add_widget(del_sub)
-                sub_chip.add_widget(chip_box)
-
-                # Bind tap on subcategory chip to delete subcategory
-                sub_chip.bind(on_release=lambda *_, s_id=sub.id: self._handle_delete_sub(s_id))
-                sub_row.add_widget(sub_chip)
-
-            layout.add_widget(sub_row)
-
-        self.add_widget(layout)
-
-    def _handle_delete_sub(self, sub_id: int) -> None:
-        if self._on_delete_subcategory:
-            self._on_delete_subcategory(sub_id)
-
-    @staticmethod
-    def _hex_to_rgba(hex_str: str, alpha: float = 1.0) -> tuple:
-        hex_str = hex_str.lstrip("#")
-        if len(hex_str) != 6:
-            return (0.5, 0.5, 0.5, alpha)
-        r = int(hex_str[0:2], 16) / 255.0
-        g = int(hex_str[2:4], 16) / 255.0
-        b = int(hex_str[4:6], 16) / 255.0
-        return (r, g, b, alpha)
-
-    @staticmethod
-    def _icon_char(icon_name: str) -> str:
-        _MAP = {
-            "food": "🍽",
-            "car": "🚗",
-            "train": "🚆",
-            "bus": "🚌",
-            "home": "🏠",
-            "laptop": "💻",
-            "book-open-variant": "📚",
-            "television-play": "🎬",
-            "shopping": "🛍",
-            "heart-pulse": "❤",
-            "lightning-bolt": "⚡",
-            "piggy-bank": "🐷",
-            "wifi": "📶",
-            "briefcase": "💼",
-            "cash": "💰",
-            "tag": "🏷",
-        }
-        return _MAP.get(icon_name, "🏷")
-
+    return ft.Container(
+        bgcolor=COLOR_SURFACE_CARD,
+        border=ft.Border.all(1, COLOR_OUTLINE_VARIANT),
+        border_radius=12,
+        padding=ft.Padding.all(16),
+        content=ft.Column(
+            spacing=12,
+            controls=[
+                # Header row: icon + name + actions
+                ft.Row(
+                    spacing=12,
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                    controls=[
+                        ft.Row(
+                            spacing=12,
+                            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                            controls=[
+                                ft.Container(
+                                    width=38,
+                                    height=38,
+                                    border_radius=10,
+                                    bgcolor=COLOR_SURFACE_CONTAINER,
+                                    alignment=ft.Alignment.CENTER,
+                                    content=ft.Icon(
+                                        flet_icon,
+                                        color=COLOR_PRIMARY_CONTAINER,
+                                        size=20,
+                                    ),
+                                ),
+                                ft.Text(
+                                    category.name,
+                                    color=COLOR_ON_SURFACE,
+                                    size=16,
+                                    weight=ft.FontWeight.W_600,
+                                ),
+                            ],
+                        ),
+                        ft.Row(
+                            spacing=4,
+                            controls=[
+                                ft.IconButton(
+                                    icon=ft.Icons.EDIT_OUTLINED,
+                                    icon_color=COLOR_SECONDARY,
+                                    icon_size=18,
+                                    tooltip="Edit Category",
+                                    on_click=lambda e: on_edit(category)
+                                    if on_edit
+                                    else None,
+                                ),
+                                ft.IconButton(
+                                    icon=ft.Icons.DELETE_OUTLINE,
+                                    icon_color=COLOR_ERROR,
+                                    icon_size=18,
+                                    tooltip="Delete Category",
+                                    on_click=lambda e: on_delete(category)
+                                    if on_delete
+                                    else None,
+                                ),
+                            ],
+                        ),
+                    ],
+                ),
+                # Subcategories list
+                sub_row,
+                # Add subcategory link
+                ft.Row(
+                    controls=[
+                        ft.TextButton(
+                            text="+ Add Label",
+                            style=ft.ButtonStyle(
+                                color=COLOR_PRIMARY_CONTAINER,
+                            ),
+                            on_click=lambda e: on_add_subcategory(category)
+                            if on_add_subcategory
+                            else None,
+                        ),
+                    ]
+                ),
+            ],
+        ),
+    )

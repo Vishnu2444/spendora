@@ -14,17 +14,16 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from utils.storage import get_data_dir, get_database_path, get_database_url
+
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
 
 BASE_DIR: Path = Path(__file__).resolve().parent.parent
-DATA_DIR: Path = BASE_DIR / "data"
-DATABASE_PATH: Path = DATA_DIR / "spendora.db"
+DATA_DIR: Path = get_data_dir()
+DATABASE_PATH: Path = get_database_path()
 ASSETS_DIR: Path = BASE_DIR / "assets"
-
-# Ensure the data directory exists at import time (safe to call repeatedly).
-DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 # ---------------------------------------------------------------------------
 # Environment
@@ -42,7 +41,7 @@ GEMINI_API_KEY: str | None = os.getenv("GEMINI_API_KEY")
 # Database
 # ---------------------------------------------------------------------------
 
-DATABASE_URL: str = f"sqlite:///{DATABASE_PATH}"
+DATABASE_URL: str = get_database_url()
 
 # ---------------------------------------------------------------------------
 # Money / Currency
@@ -280,25 +279,71 @@ PROFESSION_CATEGORY_SUGGESTIONS: dict[str, list[dict]] = {
 }
 
 # ---------------------------------------------------------------------------
-# UI / Theme
+# UI / Theme — Google Stitch "SPENDORA" Design System
 # ---------------------------------------------------------------------------
 
-THEME_PRIMARY_COLOR: str = "#9058FF"
-THEME_ACCENT_COLOR: str = "#4ECDC4"
-THEME_STYLE: str = "Dark"  # "Light" or "Dark"
+APP_NAME: str = "SPENDORA"
+APP_VERSION: str = "2.4"
 
-APP_NAME: str = "Spendora"
-APP_VERSION: str = "0.1.0"
+# Primary Brand (Royal & Electric Blue)
+COLOR_PRIMARY: str = "#0041DC"
+COLOR_PRIMARY_CONTAINER: str = "#2A5BFF"
+COLOR_ON_PRIMARY: str = "#FFFFFF"
+COLOR_PRIMARY_FIXED: str = "#DDE1FF"
+COLOR_PRIMARY_FIXED_DIM: str = "#B8C4FF"
 
-APP_BG_DARK: tuple = (8 / 255, 15 / 255, 25 / 255, 1)
-APP_BG_PANEL: tuple = (18 / 255, 28 / 255, 42 / 255, 1)
-APP_BG_CARD: tuple = (27 / 255, 38 / 255, 54 / 255, 1)
-APP_LINE: tuple = (110 / 255, 128 / 255, 160 / 255, 0.38)
-APP_TEXT: tuple = (240 / 255, 244 / 255, 255 / 255, 1)
-APP_MUTED_TEXT: tuple = (160 / 255, 176 / 255, 196 / 255, 1)
-APP_ACCENT: tuple = (144 / 255, 88 / 255, 255 / 255, 1)
-APP_ACCENT_2: tuple = (79 / 255, 175 / 255, 255 / 255, 1)
-APP_SUCCESS: tuple = (75 / 255, 202 / 255, 156 / 255, 1)
-APP_DANGER: tuple = (239 / 255, 92 / 255, 92 / 255, 1)
-APP_ORANGE: tuple = (248 / 255, 135 / 255, 89 / 255, 1)
+# Secondary (Vibrant Purple)
+COLOR_SECONDARY: str = "#712AE2"
+COLOR_SECONDARY_CONTAINER: str = "#8A4CFC"
+COLOR_ON_SECONDARY_CONTAINER: str = "#FFFBFF"
+COLOR_SECONDARY_FIXED: str = "#EADDFF"
+COLOR_ON_SECONDARY: str = "#FFFFFF"
+
+# Tertiary (Flame Coral / Orange)
+COLOR_TERTIARY: str = "#A41F00"
+COLOR_TERTIARY_CONTAINER: str = "#CA3513"
+COLOR_TERTIARY_FIXED: str = "#FFDAD2"
+COLOR_CORAL_ACCENT: str = "#FF5A36"
+COLOR_EMERALD_ACCENT: str = "#10B981"
+
+# Surfaces & Backgrounds
+COLOR_BACKGROUND: str = "#FAF8FF"
+COLOR_SURFACE: str = "#FAF8FF"
+COLOR_SURFACE_CARD: str = "#FFFFFF"
+COLOR_SURFACE_LOW: str = "#F2F3FF"
+COLOR_SURFACE_CONTAINER: str = "#EAEDFF"
+COLOR_SURFACE_HIGH: str = "#E2E7FD"
+COLOR_SURFACE_HIGHEST: str = "#DDE2F7"
+
+# Typography & Borders
+COLOR_ON_SURFACE: str = "#151B2B"
+COLOR_ON_SURFACE_VARIANT: str = "#434656"
+COLOR_OUTLINE: str = "#747688"
+COLOR_OUTLINE_VARIANT: str = "#C4C5D9"
+
+# Feedback & Alerts
+COLOR_ERROR: str = "#BA1A1A"
+COLOR_ERROR_CONTAINER: str = "#FFDAD6"
+COLOR_SUCCESS: str = "#10B981"
+COLOR_GROWTH: str = "#10B981"
+
+# Theming compatibility
+THEME_PRIMARY_COLOR: str = COLOR_PRIMARY
+THEME_ACCENT_COLOR: str = COLOR_PRIMARY_CONTAINER
+THEME_STYLE: str = "Light"
+
+# Component Aliases
+APP_BG_DARK: str = COLOR_BACKGROUND
+APP_BG_PANEL: str = COLOR_SURFACE_LOW
+APP_BG_CARD: str = COLOR_SURFACE_CARD
+APP_LINE: str = COLOR_OUTLINE_VARIANT
+APP_TEXT: str = COLOR_ON_SURFACE
+APP_MUTED_TEXT: str = COLOR_ON_SURFACE_VARIANT
+APP_ACCENT: str = COLOR_PRIMARY_CONTAINER
+APP_ACCENT_2: str = COLOR_SECONDARY
+APP_SUCCESS: str = COLOR_SUCCESS
+APP_DANGER: str = COLOR_ERROR
+APP_ORANGE: str = COLOR_CORAL_ACCENT
+
+
 

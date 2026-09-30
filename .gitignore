@@ -51,3 +51,6 @@ bin/
 .DS_Store
 Thumbs.db
 
+# Design prototypes / generated reference assets
+web_ui/
+stitch_ai_personal_expense_tracker/

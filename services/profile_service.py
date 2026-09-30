@@ -54,6 +54,10 @@ class ProfileService:
             repo = UserRepository(session)
             return repo.count() > 0
 
+    # Aliases for API convenience
+    get_user = get_current_user
+    has_profile = has_user
+
     def create_user(
         self,
         name: str,
@@ -124,6 +128,8 @@ class ProfileService:
         logger.info("Profile created for user id=%d", user.id)
         return user
 
+    create_profile = create_user
+
     def mark_onboarding_complete(self, user_id: int) -> None:
         """Mark the user's onboarding as finished."""
         with get_session() as session:
@@ -138,6 +144,7 @@ class ProfileService:
         self,
         user_id: int,
         name: Optional[str] = None,
+        profession: Optional[str] = None,
         currency: Optional[str] = None,
         monthly_income_str: Optional[str] = None,
         fixed_expenses_str: Optional[str] = None,
@@ -154,6 +161,9 @@ class ProfileService:
 
             if name is not None:
                 user.name = validate_name(name, field="Name")
+
+            if profession is not None:
+                user.profession = profession.strip()
 
             if currency is not None:
                 from config.settings import CURRENCY_MINOR_UNITS
@@ -184,4 +194,18 @@ class ProfileService:
             session.expunge(user)
 
         return user
+
+    def get_preference(self, user_id: int, key: str, default: Optional[str] = None) -> Optional[str]:
+        """Fetch user-specific preference value by key."""
+        with get_session() as session:
+            repo = UserRepository(session)
+            return repo.get_preference(user_id, key, default)
+
+    def set_preference(self, user_id: int, key: str, value: Optional[str]) -> None:
+        """Set user-specific preference value."""
+        with get_session() as session:
+            repo = UserRepository(session)
+            repo.set_preference(user_id, key, value)
+            session.commit()
+
 

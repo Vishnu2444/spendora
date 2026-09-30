@@ -1,1 +1,1 @@
-"""Spendora — Shared UI components package."""
+"""Spendora — Components package (Flet)."""

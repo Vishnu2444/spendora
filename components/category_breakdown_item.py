@@ -1,171 +1,114 @@
 """
-Spendora — CategoryBreakdownItem component.
+Spendora (Trackz) — CategoryBreakdownItem component (Flet).
 
-Displays a single category's share in total expenses with:
-- Category icon badge & name
-- Transaction count
-- Formatted total amount & percentage
-- Horizontal distribution bar
+Renders a single category row in the spending distribution:
+icon circle | name + count | amount + percentage | thin progress bar.
 """
 
 from __future__ import annotations
 
-from kivy.metrics import dp
-from kivymd.uix.boxlayout import MDBoxLayout
-from kivymd.uix.card import MDCard
-from kivymd.uix.label import MDLabel
+import flet as ft
 
-from components.distribution_bar import DistributionBar
-from config.settings import APP_BG_CARD, APP_MUTED_TEXT, APP_TEXT
+from config.settings import (
+    COLOR_ON_SURFACE,
+    COLOR_OUTLINE_VARIANT,
+    COLOR_SECONDARY,
+    COLOR_SURFACE_CARD,
+    COLOR_SURFACE_CONTAINER,
+)
 from utils.formatting import format_currency
 
 
-class CategoryBreakdownItem(MDCard):
-    """Row displaying a category's expenditure share, amount, and progress bar."""
+def build_category_breakdown_item(
+    category_name: str,
+    amount_paise: int,
+    percentage: float,
+    transaction_count: int,
+    color_hex: str,
+    icon_name: str,
+    currency: str = "INR",
+) -> ft.Container:
+    """Build a Stitch-styled card showing a category's spending share."""
+    from components.transaction_card import _resolve_icon
 
-    def __init__(
-        self,
-        category_name: str,
-        amount_paise: int,
-        percentage: float,
-        transaction_count: int,
-        color_hex: str = "#80CBC4",
-        icon_name: str = "tag",
-        currency: str = "INR",
-        **kwargs,
-    ) -> None:
-        super().__init__(
-            style="filled",
-            md_bg_color=APP_BG_CARD,
-            radius=[dp(12)],
-            padding=[dp(14), dp(12), dp(14), dp(12)],
-            size_hint_y=None,
-            height=dp(70),
-            **kwargs,
-        )
-        self._build(
-            category_name=category_name,
-            amount_paise=amount_paise,
-            percentage=percentage,
-            transaction_count=transaction_count,
-            color_hex=color_hex,
-            icon_name=icon_name,
-            currency=currency,
-        )
+    flet_icon = _resolve_icon(icon_name)
+    amount_str = format_currency(amount_paise, currency)
+    pct_str = f"{percentage:.1f}%"
+    count_str = f"{transaction_count} txn{'s' if transaction_count != 1 else ''}"
 
-    def _build(
-        self,
-        category_name: str,
-        amount_paise: int,
-        percentage: float,
-        transaction_count: int,
-        color_hex: str,
-        icon_name: str,
-        currency: str,
-    ) -> None:
-        layout = MDBoxLayout(orientation="vertical", spacing=dp(8))
-
-        # Top row: icon + name + count (left), percentage + amount (right)
-        top_row = MDBoxLayout(orientation="horizontal", adaptive_height=True, spacing=dp(8))
-
-        # Category icon symbol
-        icon_box = MDCard(
-            style="filled",
-            md_bg_color=self._hex_to_rgba(color_hex, alpha=0.2),
-            size_hint=(None, None),
-            size=(dp(28), dp(28)),
-            radius=[dp(14)],
-            pos_hint={"center_y": 0.5},
-        )
-        icon_box.add_widget(
-            MDLabel(
-                text=self._icon_char(icon_name),
-                halign="center",
-                valign="middle",
-                theme_text_color="Custom",
-                text_color=self._hex_to_rgba(color_hex, alpha=1.0),
-                font_style="Title",
-                role="small",
-            )
-        )
-        top_row.add_widget(icon_box)
-
-        name_box = MDBoxLayout(orientation="horizontal", adaptive_height=True, spacing=dp(4), pos_hint={"center_y": 0.5})
-        name_box.add_widget(
-            MDLabel(
-                text=category_name,
-                font_style="Body",
-                role="medium",
-                adaptive_height=True,
-                theme_text_color="Custom",
-                text_color=APP_TEXT,
-            )
-        )
-        name_box.add_widget(
-            MDLabel(
-                text=f"({transaction_count})",
-                font_style="Body",
-                role="small",
-                adaptive_height=True,
-                theme_text_color="Custom",
-                text_color=APP_MUTED_TEXT,
-            )
-        )
-        top_row.add_widget(name_box)
-
-        top_row.add_widget(MDBoxLayout())  # Spacer
-
-        amount_str = format_currency(amount_paise, currency)
-        right_label = MDLabel(
-            text=f"{percentage:.1f}% · {amount_str}",
-            font_style="Body",
-            role="medium",
-            adaptive_height=True,
-            halign="right",
-            theme_text_color="Custom",
-            text_color=APP_TEXT,
-            pos_hint={"center_y": 0.5},
-        )
-        top_row.add_widget(right_label)
-
-        layout.add_widget(top_row)
-
-        # Bottom row: DistributionBar
-        bar_color = self._hex_to_rgba(color_hex, alpha=0.9)
-        dist_bar = DistributionBar(percentage=percentage, color_rgba=bar_color, bar_height=6.0)
-        layout.add_widget(dist_bar)
-
-        self.add_widget(layout)
-
-    @staticmethod
-    def _hex_to_rgba(hex_str: str, alpha: float = 1.0) -> tuple:
-        hex_str = hex_str.lstrip("#")
-        if len(hex_str) != 6:
-            return (0.5, 0.5, 0.5, alpha)
-        r = int(hex_str[0:2], 16) / 255.0
-        g = int(hex_str[2:4], 16) / 255.0
-        b = int(hex_str[4:6], 16) / 255.0
-        return (r, g, b, alpha)
-
-    @staticmethod
-    def _icon_char(icon_name: str) -> str:
-        _MAP = {
-            "food": "🍽",
-            "car": "🚗",
-            "train": "🚆",
-            "bus": "🚌",
-            "home": "🏠",
-            "laptop": "💻",
-            "book-open-variant": "📚",
-            "television-play": "🎬",
-            "shopping": "🛍",
-            "heart-pulse": "❤",
-            "lightning-bolt": "⚡",
-            "piggy-bank": "🐷",
-            "wifi": "📶",
-            "briefcase": "💼",
-            "cash": "💰",
-            "tag": "🏷",
-        }
-        return _MAP.get(icon_name, "🏷")
-
+    return ft.Container(
+        bgcolor=COLOR_SURFACE_CARD,
+        border=ft.Border.all(1, COLOR_OUTLINE_VARIANT),
+        border_radius=12,
+        padding=ft.Padding.symmetric(horizontal=16, vertical=12),
+        content=ft.Column(
+            spacing=8,
+            controls=[
+                ft.Row(
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                    controls=[
+                        ft.Row(
+                            spacing=12,
+                            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                            controls=[
+                                ft.Container(
+                                    width=38,
+                                    height=38,
+                                    border_radius=10,
+                                    bgcolor=COLOR_SURFACE_CONTAINER,
+                                    alignment=ft.Alignment.CENTER,
+                                    content=ft.Icon(
+                                        flet_icon,
+                                        color=COLOR_ON_SURFACE,
+                                        size=18,
+                                    ),
+                                ),
+                                ft.Column(
+                                    spacing=2,
+                                    controls=[
+                                        ft.Text(
+                                            category_name,
+                                            color=COLOR_ON_SURFACE,
+                                            size=14,
+                                            weight=ft.FontWeight.W_600,
+                                        ),
+                                        ft.Text(
+                                            count_str,
+                                            color=COLOR_SECONDARY,
+                                            size=11,
+                                        ),
+                                    ],
+                                ),
+                            ],
+                        ),
+                        ft.Column(
+                            horizontal_alignment=ft.CrossAxisAlignment.END,
+                            spacing=2,
+                            controls=[
+                                ft.Text(
+                                    amount_str,
+                                    color=COLOR_ON_SURFACE,
+                                    size=14,
+                                    weight=ft.FontWeight.W_700,
+                                ),
+                                ft.Text(
+                                    pct_str,
+                                    color=COLOR_SECONDARY,
+                                    size=12,
+                                    weight=ft.FontWeight.W_500,
+                                ),
+                            ],
+                        ),
+                    ],
+                ),
+                ft.ProgressBar(
+                    value=percentage / 100.0 if percentage > 0 else 0.01,
+                    color=color_hex or COLOR_ON_SURFACE,
+                    bgcolor=COLOR_SURFACE_CONTAINER,
+                    bar_height=4,
+                    border_radius=2,
+                ),
+            ],
+        ),
+    )

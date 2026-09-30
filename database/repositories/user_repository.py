@@ -63,3 +63,33 @@ class UserRepository:
         self._session.delete(user)
         logger.info("Deleted user id=%d", user.id)
 
+    # ------------------------------------------------------------------
+    # User Preferences
+    # ------------------------------------------------------------------
+
+    def get_preference(self, user_id: int, key: str, default: Optional[str] = None) -> Optional[str]:
+        """Fetch a single user preference value by key."""
+        from database.models import UserPreference
+        pref = (
+            self._session.query(UserPreference)
+            .filter_by(user_id=user_id, key=key)
+            .first()
+        )
+        return pref.value if pref is not None else default
+
+    def set_preference(self, user_id: int, key: str, value: Optional[str]) -> None:
+        """Set or update a single user preference value."""
+        from database.models import UserPreference
+        pref = (
+            self._session.query(UserPreference)
+            .filter_by(user_id=user_id, key=key)
+            .first()
+        )
+        if pref is None:
+            pref = UserPreference(user_id=user_id, key=key, value=value)
+            self._session.add(pref)
+        else:
+            pref.value = value
+        self._session.flush()
+
+

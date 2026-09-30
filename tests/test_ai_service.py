@@ -46,6 +46,7 @@ def ai_test_db():
     with patch("services.ai_service.get_session", side_effect=mock_get_session), \
          patch("services.calculation_service.get_session", side_effect=mock_get_session), \
          patch("services.analytics_service.get_session", side_effect=mock_get_session), \
+         patch("services.category_service.get_session", side_effect=mock_get_session), \
          patch("services.transaction_service.get_session", side_effect=mock_get_session):
         yield Session
 
@@ -195,6 +196,8 @@ class TestAIService:
         service._client.models.generate_content.return_value = mock_resp
 
         user_id = ai_seed_user["user_id"]
+        # Explicitly opt-in user to Cloud AI as required by privacy-first default
+        service._profile_service.set_preference(user_id, "cloud_ai_enabled", "true")
         result = service.query_financial_assistant(user_id, "How are my savings looking?")
 
         assert "₹56,000" in result
@@ -204,4 +207,115 @@ class TestAIService:
         cfg = call_kwargs["config"]
         assert "VERIFIED FINANCIAL DATA" in cfg.system_instruction
         assert "Alex" in cfg.system_instruction
+
+    def test_chat_method_returns_ai_chat_response(self, ai_seed_user):
+        from services.ai_service import AIChatResponse
+        service = AIService(api_key=None)
+        user_id = ai_seed_user["user_id"]
+
+        resp = service.chat("How much did I spend this month?", user_id=user_id)
+        assert isinstance(resp, AIChatResponse)
+        assert hasattr(resp, "reply")
+        assert str(resp) == resp.reply
+        assert len(resp.reply) > 0
+        assert len(resp.suggested_followups) > 0
+
+    def test_natural_language_expense_logging(self, ai_seed_user, ai_test_db):
+        service = AIService(api_key=None)
+        user_id = ai_seed_user["user_id"]
+
+        resp = service.chat("Spent ₹450 on lunch at Domino's", user_id=user_id)
+        assert resp.action == "TRANSACTION_LOGGED"
+        assert "Recorded Expense" in resp.reply
+        assert "Food & Dining" in resp.reply
+        assert "450" in resp.reply
+
+        # Verify transaction in database
+        Session = ai_test_db
+        with Session() as session:
+            txns = session.query(Transaction).filter_by(user_id=user_id).all()
+            dominos = [t for t in txns if "domino" in (t.description or "").lower()]
+            assert len(dominos) == 1
+            assert dominos[0].amount_paise == 450_00
+            assert dominos[0].transaction_type == TransactionType.EXPENSE
+
+    def test_natural_language_income_logging(self, ai_seed_user, ai_test_db):
+        service = AIService(api_key=None)
+        user_id = ai_seed_user["user_id"]
+
+        resp = service.chat("Received ₹12,000 freelance bonus", user_id=user_id)
+        assert resp.action == "TRANSACTION_LOGGED"
+        assert "Recorded Income" in resp.reply
+        assert "12,000" in resp.reply
+
+        Session = ai_test_db
+        with Session() as session:
+            txns = session.query(Transaction).filter_by(user_id=user_id).all()
+            bonus = [t for t in txns if "bonus" in (t.description or "").lower()]
+            assert len(bonus) == 1
+            assert bonus[0].amount_paise == 12000_00
+            assert bonus[0].transaction_type == TransactionType.INCOME
+
+    def test_affordability_queries(self, ai_seed_user):
+        service = AIService(api_key=None)
+        user_id = ai_seed_user["user_id"]
+
+        # 1. Comfortable purchase (₹10,000 is well within ₹56,000 surplus)
+        resp_yes = service.chat("Can I afford to buy a ₹10,000 gadget?", user_id=user_id)
+        assert resp_yes.action == "AFFORDABILITY"
+        assert "Affordability Verdict" in resp_yes.reply
+        assert "affordable" in resp_yes.reply.lower() or "feasible" in resp_yes.reply.lower()
+
+        # 2. Absurd purchase exceeding surplus (₹200,000 is way above ₹56,000 surplus)
+        resp_no = service.chat("Can I buy a ₹200,000 car?", user_id=user_id)
+        assert resp_no.action == "AFFORDABILITY"
+        assert "Not Recommended" in resp_no.reply or "deficit" in resp_no.reply.lower()
+
+    def test_50_30_20_budget_audit(self, ai_seed_user):
+        service = AIService(api_key=None)
+        user_id = ai_seed_user["user_id"]
+
+        resp = service.chat("How is my 50-30-20 budget split looking?", user_id=user_id)
+        assert resp.action == "BUDGET_ADVICE"
+        assert "50-30-20" in resp.reply
+        assert "Needs" in resp.reply
+        assert "Wants" in resp.reply
+        assert "Savings" in resp.reply
+
+    def test_safe_daily_spend_and_burn_rate(self, ai_seed_user):
+        service = AIService(api_key=None)
+        user_id = ai_seed_user["user_id"]
+
+        resp = service.chat("What is my safe daily spend?", user_id=user_id)
+        assert "Safe Discretionary Spend" in resp.reply or "Daily" in resp.reply
+        assert "/day" in resp.reply
+
+    def test_forecast_month_end_savings(self, ai_seed_user):
+        service = AIService(api_key=None)
+        user_id = ai_seed_user["user_id"]
+
+        resp = service.chat("Forecast my month-end savings balance", user_id=user_id)
+        assert "Projected" in resp.reply or "Month-End" in resp.reply
+
+    def test_ledger_summary_query(self, ai_seed_user):
+        service = AIService(api_key=None)
+        user_id = ai_seed_user["user_id"]
+
+        resp = service.chat("Show my ledger summary and cash flow", user_id=user_id)
+        assert "Opening Balance" in resp.reply
+        assert "Credits" in resp.reply or "Closing" in resp.reply
+
+    def test_conversation_memory_and_clear(self, ai_seed_user):
+        service = AIService(api_key=None)
+        user_id = ai_seed_user["user_id"]
+
+        assert len(service._conversation_history) == 0
+        service.chat("Hello Spendora AI", user_id=user_id)
+        assert len(service._conversation_history) == 2  # user + assistant
+
+        service.chat("What is my burn rate?", user_id=user_id)
+        assert len(service._conversation_history) == 4
+
+        service.clear_history()
+        assert len(service._conversation_history) == 0
 

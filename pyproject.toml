@@ -1,0 +1,47 @@
+[project]
+name = "spendora"
+version = "1.0.0"
+description = "Spendora — Privacy-First AI Personal Expense Tracker"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "flet>=1.0.0",
+    "flet-charts>=0.1.0",
+    "sqlalchemy>=2.0.0",
+    "pydantic>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "google-genai>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=5.0.0",
+]
+
+[tool.flet]
+org = "org.spendora"
+product = "Spendora"
+company = "Spendora"
+copyright = "Copyright (C) 2026 Spendora"
+
+[tool.flet.app]
+path = "."
+exclude = [
+    "data",
+    "tests",
+    "docs",
+    "*.csv",
+    "*.db",
+    ".env*",
+    "requirements-dev.txt",
+    "stitch_ai_personal_expense_tracker",
+    "web_ui",
+]
+
+[tool.flet.android]
+package = "org.spendora.spendora"
+build_number = 1
+permissions = [
+    "android.permission.INTERNET",
+]

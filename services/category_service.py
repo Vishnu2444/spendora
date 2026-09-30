@@ -42,6 +42,10 @@ class CategoryService:
                 cat.subcategories = active_subs
             return cats
 
+    def get_user_categories(self, user_id: int) -> List[Category]:
+        """Return all active categories for a user (alias for list_categories)."""
+        return self.list_categories(user_id)
+
     def get_category(self, category_id: int) -> Optional[Category]:
         """Return a single category by id, or None."""
         with get_session() as session:

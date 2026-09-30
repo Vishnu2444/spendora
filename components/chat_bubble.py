@@ -1,145 +1,198 @@
 """
-Spendora — ChatBubble component.
+Spendora (Trackz) — ChatBubble component (Flet).
 
-Renders user and assistant conversational message bubbles.
+Matches Google Stitch AI Advisor design:
+- Assistant bubble in soft `#EAEDFF` container with smart_toy icon
+- User bubble in deep `#064E3B` container with white text
 """
 
 from __future__ import annotations
 
-from kivy.metrics import dp
-from kivymd.uix.boxlayout import MDBoxLayout
-from kivymd.uix.card import MDCard
-from kivymd.uix.label import MDLabel
+from typing import Callable, List, Optional
+import flet as ft
 
 from config.settings import (
-    APP_BG_CARD,
-    APP_MUTED_TEXT,
-    APP_TEXT,
+    COLOR_EMERALD_ACCENT,
+    COLOR_ON_PRIMARY,
+    COLOR_ON_SURFACE,
+    COLOR_OUTLINE_VARIANT,
+    COLOR_PRIMARY,
+    COLOR_PRIMARY_CONTAINER,
+    COLOR_SECONDARY,
+    COLOR_SURFACE_CARD,
+    COLOR_SURFACE_CONTAINER,
 )
 
 
-class ChatBubble(MDBoxLayout):
-    """Chat message bubble for user or AI assistant."""
-
-    def __init__(
-        self,
-        text: str,
-        is_user: bool = False,
-        timestamp: str = "",
-        **kwargs,
-    ) -> None:
-        super().__init__(
-            orientation="horizontal",
-            adaptive_height=True,
-            spacing=dp(8),
-            padding=[dp(4), dp(4), dp(4), dp(4)],
-            **kwargs,
+def build_chat_bubble(
+    text: str,
+    is_user: bool = False,
+    timestamp: str = "",
+    action_badge: Optional[str] = None,
+    suggested_chips: Optional[List[str]] = None,
+    on_chip_click: Optional[Callable[[str], None]] = None,
+) -> ft.Row:
+    """Build a Stitch-styled chat bubble for the Spendora AI Financial Advisor."""
+    if is_user:
+        bubble = ft.Container(
+            bgcolor=COLOR_PRIMARY_CONTAINER,
+            border_radius=ft.BorderRadius.only(
+                top_left=16, top_right=16, bottom_left=16, bottom_right=4,
+            ),
+            padding=ft.Padding.symmetric(horizontal=16, vertical=12),
+            content=ft.Column(
+                spacing=4,
+                controls=[
+                    ft.Text(
+                        text,
+                        color=COLOR_ON_PRIMARY,
+                        size=14,
+                        weight=ft.FontWeight.W_400,
+                    ),
+                    *(
+                        [
+                            ft.Text(
+                                timestamp,
+                                color=f"{COLOR_ON_PRIMARY}AA",
+                                size=11,
+                                text_align=ft.TextAlign.RIGHT,
+                            )
+                        ]
+                        if timestamp
+                        else []
+                    ),
+                ],
+            ),
         )
-        self.is_user = is_user
-        self._build(text, is_user, timestamp)
+        return ft.Row(
+            alignment=ft.MainAxisAlignment.END,
+            vertical_alignment=ft.CrossAxisAlignment.END,
+            controls=[
+                ft.Container(expand=True),
+                bubble,
+            ],
+        )
+    else:
+        avatar = ft.Container(
+            width=36,
+            height=36,
+            border_radius=18,
+            bgcolor=COLOR_SURFACE_CONTAINER,
+            border=ft.Border.all(1, COLOR_OUTLINE_VARIANT),
+            alignment=ft.Alignment.CENTER,
+            content=ft.Icon(ft.Icons.AUTO_AWESOME, color=COLOR_PRIMARY, size=18),
+        )
 
-    def _build(self, text: str, is_user: bool, timestamp: str) -> None:
-        if is_user:
-            self.add_widget(MDBoxLayout())  # Left spacer to push user bubble right
-
-            bubble = MDBoxLayout(
-                md_bg_color=(0.35, 0.28, 0.58, 0.95),
-                radius=[dp(16), dp(16), dp(4), dp(16)],
-                padding=[dp(14), dp(10), dp(14), dp(10)],
-                size_hint_x=0.82,
-                adaptive_height=True,
+        header_controls = [
+            ft.Row(
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                controls=[
+                    ft.Row(
+                        spacing=6,
+                        controls=[
+                            ft.Text(
+                                "Spendora AI",
+                                color=COLOR_PRIMARY,
+                                size=12,
+                                weight=ft.FontWeight.W_700,
+                            ),
+                            ft.Container(
+                                bgcolor=f"{COLOR_PRIMARY}18",
+                                border_radius=6,
+                                padding=ft.Padding.symmetric(horizontal=6, vertical=2),
+                                content=ft.Text("CONCIERGE", size=9, weight=ft.FontWeight.W_800, color=COLOR_PRIMARY),
+                            ),
+                        ],
+                    ),
+                    *(
+                        [
+                            ft.Text(
+                                timestamp,
+                                color=COLOR_SECONDARY,
+                                size=11,
+                            )
+                        ]
+                        if timestamp
+                        else []
+                    ),
+                ],
             )
-            inner = MDBoxLayout(orientation="vertical", adaptive_height=True, spacing=dp(4))
-            lbl = MDLabel(
-                text=text,
-                font_style="Body",
-                role="medium",
-                adaptive_height=True,
-                theme_text_color="Custom",
-                text_color=APP_TEXT,
-            )
-            inner.add_widget(lbl)
+        ]
 
-            if timestamp:
-                time_lbl = MDLabel(
-                    text=timestamp,
-                    font_style="Label",
-                    role="small",
-                    adaptive_height=True,
-                    halign="right",
-                    theme_text_color="Custom",
-                    text_color=(0.85, 0.82, 0.95, 0.8),
+        # Optional action badge (e.g. "✅ Logged to Ledger")
+        badge_controls = []
+        if action_badge:
+            badge_controls.append(
+                ft.Container(
+                    bgcolor=f"{COLOR_EMERALD_ACCENT}18",
+                    border=ft.Border.all(1, f"{COLOR_EMERALD_ACCENT}40"),
+                    border_radius=8,
+                    padding=ft.Padding.symmetric(horizontal=8, vertical=3),
+                    content=ft.Text(action_badge, size=11, weight=ft.FontWeight.W_700, color=COLOR_EMERALD_ACCENT),
                 )
-                inner.add_widget(time_lbl)
-
-            bubble.add_widget(inner)
-            self.add_widget(bubble)
-
-        else:
-            # Assistant bubble (aligned left with avatar)
-            avatar = MDCard(
-                style="filled",
-                md_bg_color=(0.25, 0.25, 0.38, 1),
-                size_hint=(None, None),
-                size=(dp(32), dp(32)),
-                radius=[dp(16)],
-                pos_hint={"top": 1},
             )
-            avatar.add_widget(
-                MDLabel(
-                    text="✦",
-                    halign="center",
-                    valign="middle",
-                    font_style="Title",
-                    role="small",
-                    theme_text_color="Custom",
-                    text_color=(0.65, 0.55, 0.95, 1),
+
+        # Markdown body
+        body_control = ft.Markdown(
+            text,
+            selectable=True,
+            extension_set=ft.MarkdownExtensionSet.GITHUB_WEB,
+        )
+
+        # Optional suggested chips
+        chips_controls = []
+        if suggested_chips and on_chip_click:
+            chips_list = []
+            for chip_text in suggested_chips:
+                def _make_click(ct=chip_text):
+                    return lambda e: on_chip_click(ct)
+
+                chips_list.append(
+                    ft.Container(
+                        bgcolor=COLOR_SURFACE_CARD,
+                        border=ft.Border.all(1, COLOR_OUTLINE_VARIANT),
+                        border_radius=16,
+                        padding=ft.Padding.symmetric(horizontal=10, vertical=6),
+                        ink=True,
+                        on_click=_make_click(),
+                        content=ft.Text(chip_text, size=11, weight=ft.FontWeight.W_600, color=COLOR_PRIMARY),
+                    )
+                )
+
+            chips_controls.append(
+                ft.Container(
+                    padding=ft.Padding.only(top=6),
+                    content=ft.Row(
+                        scroll=ft.ScrollMode.HIDDEN,
+                        spacing=6,
+                        controls=chips_list,
+                    ),
                 )
             )
-            self.add_widget(avatar)
 
-            bubble = MDBoxLayout(
-                md_bg_color=APP_BG_CARD,
-                radius=[dp(16), dp(16), dp(16), dp(4)],
-                padding=[dp(14), dp(12), dp(14), dp(12)],
-                size_hint_x=0.84,
-                adaptive_height=True,
-            )
-            inner = MDBoxLayout(orientation="vertical", adaptive_height=True, spacing=dp(4))
+        bubble = ft.Container(
+            bgcolor=COLOR_SURFACE_CONTAINER,
+            border_radius=ft.BorderRadius.only(
+                top_left=16, top_right=16, bottom_left=4, bottom_right=16,
+            ),
+            padding=ft.Padding.symmetric(horizontal=16, vertical=12),
+            content=ft.Column(
+                spacing=8,
+                controls=[
+                    *header_controls,
+                    *badge_controls,
+                    body_control,
+                    *chips_controls,
+                ],
+            ),
+        )
 
-            sender_lbl = MDLabel(
-                text="Spendora Assistant",
-                font_style="Label",
-                role="medium",
-                adaptive_height=True,
-                theme_text_color="Custom",
-                text_color=(0.65, 0.55, 0.95, 1),
-            )
-            inner.add_widget(sender_lbl)
-
-            msg_lbl = MDLabel(
-                text=text,
-                font_style="Body",
-                role="medium",
-                adaptive_height=True,
-                theme_text_color="Custom",
-                text_color=APP_TEXT,
-            )
-            inner.add_widget(msg_lbl)
-
-            if timestamp:
-                time_lbl = MDLabel(
-                    text=timestamp,
-                    font_style="Label",
-                    role="small",
-                    adaptive_height=True,
-                    theme_text_color="Custom",
-                    text_color=APP_MUTED_TEXT,
-                )
-                inner.add_widget(time_lbl)
-
-            bubble.add_widget(inner)
-            self.add_widget(bubble)
-
-            self.add_widget(MDBoxLayout())  # Right spacer
-
+        return ft.Row(
+            alignment=ft.MainAxisAlignment.START,
+            vertical_alignment=ft.CrossAxisAlignment.START,
+            spacing=10,
+            controls=[
+                avatar,
+                ft.Container(content=bubble, expand=True),
+            ],
+        )

@@ -1,15 +1,10 @@
 """
-Spendora — TransactionCard component.
+Spendora (Trackz) — TransactionCard component (Flet).
 
-A reusable Material Design 3 card for displaying a single transaction.
-Shows the category icon, description, date, and color-coded amount.
-
-Usage:
-    card = TransactionCard(
-        transaction=txn_object,
-        currency="INR",
-        on_tap=lambda txn: print(f"Tapped {txn.id}"),
-    )
+Material 3 / Stitch aesthetic for displaying a single transaction:
+- Category icon in soft `#EAEDFF` container
+- Description & Category / Date metadata
+- Color-coded tabular currency amount
 """
 
 from __future__ import annotations
@@ -17,225 +12,169 @@ from __future__ import annotations
 import logging
 from typing import Callable, Optional
 
-from kivy.metrics import dp
-from kivy.properties import ObjectProperty
-from kivymd.uix.boxlayout import MDBoxLayout
-from kivymd.uix.card import MDCard
-from kivymd.uix.label import MDLabel
+import flet as ft
 
 from config.settings import (
-    APP_BG_CARD,
-    APP_TEXT,
-    APP_MUTED_TEXT,
-    APP_SUCCESS,
-    APP_DANGER,
+    COLOR_ERROR,
+    COLOR_ON_SURFACE,
+    COLOR_OUTLINE_VARIANT,
+    COLOR_PRIMARY,
+    COLOR_SECONDARY,
+    COLOR_SURFACE_CARD,
+    COLOR_SURFACE_CONTAINER,
 )
 from database.models import Transaction, TransactionType
 from utils.formatting import format_currency, format_date
 
 logger = logging.getLogger(__name__)
 
-# Default category icon/color when the transaction has no category.
-_DEFAULT_ICON = "cash"
-_DEFAULT_COLOR = "#9E9E9E"
+# Map category icon names to Flet Material Icons
+_ICON_MAP: dict[str, str] = {
+    "food": ft.Icons.RESTAURANT,
+    "restaurant": ft.Icons.RESTAURANT,
+    "car": ft.Icons.DIRECTIONS_CAR,
+    "transport": ft.Icons.DIRECTIONS_CAR,
+    "train": ft.Icons.TRAIN,
+    "bus": ft.Icons.DIRECTIONS_BUS,
+    "home": ft.Icons.HOME,
+    "housing": ft.Icons.HOME,
+    "laptop": ft.Icons.LAPTOP,
+    "cloud": ft.Icons.CLOUD,
+    "book-open-variant": ft.Icons.MENU_BOOK,
+    "television-play": ft.Icons.LIVE_TV,
+    "shopping": ft.Icons.SHOPPING_BAG,
+    "shopping_cart": ft.Icons.SHOPPING_BAG,
+    "heart-pulse": ft.Icons.FAVORITE,
+    "health": ft.Icons.FAVORITE,
+    "lightning-bolt": ft.Icons.BOLT,
+    "utilities": ft.Icons.BOLT,
+    "piggy-bank": ft.Icons.SAVINGS,
+    "savings": ft.Icons.SAVINGS,
+    "wifi": ft.Icons.WIFI,
+    "briefcase": ft.Icons.WORK,
+    "work": ft.Icons.WORK,
+    "cash": ft.Icons.PAYMENTS,
+    "payments": ft.Icons.PAYMENTS,
+    "salary": ft.Icons.PAYMENTS,
+    "robot": ft.Icons.SMART_TOY,
+    "smart_toy": ft.Icons.SMART_TOY,
+}
 
-# Map common category icons to their MDI names (already stored as MDI names in DB).
-# No mapping needed — just use the icon field directly.
+
+def _resolve_icon(icon_name: str) -> str:
+    return _ICON_MAP.get((icon_name or "").lower(), ft.Icons.PAYMENTS)
 
 
-class TransactionCard(MDCard):
-    """
-    A single transaction display card.
+def build_transaction_card(
+    transaction: Transaction,
+    currency: str = "INR",
+    on_tap: Optional[Callable[[Transaction], None]] = None,
+) -> ft.Container:
+    """Build a Stitch-styled transaction row card."""
+    icon_name = "payments"
+    category_name = "General"
 
-    Displays:
-    - Category icon circle (left)
-    - Description + category name (center)
-    - Amount (right, green for income, red for expense)
-    - Date (below)
-    """
+    if transaction.category is not None:
+        category_name = transaction.category.name
+        if transaction.category.icon:
+            icon_name = transaction.category.icon
 
-    transaction = ObjectProperty(None)
+    flet_icon = _resolve_icon(icon_name)
 
-    def __init__(
-        self,
-        transaction: Transaction,
-        currency: str = "INR",
-        on_tap: Optional[Callable[[Transaction], None]] = None,
-        **kwargs,
-    ) -> None:
-        super().__init__(
-            style="filled",
-            md_bg_color=APP_BG_CARD,
-            radius=[dp(14)],
-            padding=[dp(14), dp(12), dp(14), dp(12)],
-            size_hint_y=None,
-            height=dp(72),
-            ripple_behavior=True,
-            **kwargs,
-        )
-        self.transaction = transaction
-        self._currency = currency
-        self._on_tap = on_tap
+    is_income = transaction.transaction_type == TransactionType.INCOME
+    sign = "+" if is_income else "-"
+    amount_color = COLOR_PRIMARY if is_income else COLOR_ERROR
+    amount_str = format_currency(transaction.amount_paise, currency)
+    display_amount = f"{sign}{amount_str}"
 
+    title = transaction.description or category_name
+    date_str = format_date(transaction.transaction_date, style="short")
+    subtitle = f"{category_name} • {date_str}" if transaction.description else date_str
+
+    def _handle_click(e):
         if on_tap:
-            self.bind(on_release=self._handle_tap)
+            on_tap(transaction)
 
-        self._build(transaction)
+    from config.theme_manager import theme_manager
+    is_dark = theme_manager.is_dark()
+    card_bg = "#151D30" if is_dark else COLOR_SURFACE_CARD
+    border_col = "#222E48" if is_dark else COLOR_OUTLINE_VARIANT
+    text_col = "#FFFFFF" if is_dark else COLOR_ON_SURFACE
+    sub_col = "#94A3B8" if is_dark else "#64748B"
+    # Stitch color matching for categories
+    cat_color = getattr(transaction.category, "color", None) or (COLOR_PRIMARY if is_income else "#CA3513")
+    icon_tint = f"{cat_color}22" if is_dark else f"{cat_color}18"
 
-    def _handle_tap(self, *args) -> None:
-        if self._on_tap and self.transaction:
-            self._on_tap(self.transaction)
-
-    def _build(self, txn: Transaction) -> None:
-        """Build the card layout."""
-        row = MDBoxLayout(
-            orientation="horizontal",
-            spacing=dp(12),
-        )
-
-        # --- Icon circle ---
-        icon_name = _DEFAULT_ICON
-        icon_color_hex = _DEFAULT_COLOR
-        category_name = "Uncategorized"
-
-        if txn.category is not None:
-            category_name = txn.category.name
-            if txn.category.icon:
-                icon_name = txn.category.icon
-            if txn.category.color:
-                icon_color_hex = txn.category.color
-
-        icon_bg = self._hex_to_rgba(icon_color_hex, alpha=0.2)
-        icon_fg = self._hex_to_rgba(icon_color_hex, alpha=1.0)
-
-        icon_circle = MDCard(
-            style="filled",
-            md_bg_color=icon_bg,
-            size_hint=(None, None),
-            size=(dp(44), dp(44)),
-            radius=[dp(22)],
-            pos_hint={"center_y": 0.5},
-        )
-        icon_circle.add_widget(
-            MDLabel(
-                text=self._icon_char(icon_name),
-                halign="center",
-                valign="middle",
-                theme_text_color="Custom",
-                text_color=icon_fg,
-                font_style="Title",
-                role="medium",
-            )
-        )
-        row.add_widget(icon_circle)
-
-        # --- Center: Description + category ---
-        center = MDBoxLayout(
-            orientation="vertical",
-            spacing=dp(2),
-            pos_hint={"center_y": 0.5},
-        )
-
-        desc_text = txn.description or category_name
-        center.add_widget(
-            MDLabel(
-                text=desc_text,
-                font_style="Body",
-                role="large",
-                adaptive_height=True,
-                theme_text_color="Custom",
-                text_color=APP_TEXT,
-                shorten=True,
-                shorten_from="right",
-            )
-        )
-
-        # Subtitle: category + date
-        sub_parts = []
-        if txn.description and txn.category:
-            sub_parts.append(category_name)
-        sub_parts.append(format_date(txn.transaction_date, style="short"))
-        subtitle = " · ".join(sub_parts)
-
-        center.add_widget(
-            MDLabel(
-                text=subtitle,
-                font_style="Body",
-                role="small",
-                adaptive_height=True,
-                theme_text_color="Custom",
-                text_color=APP_MUTED_TEXT,
-            )
-        )
-        row.add_widget(center)
-
-        # --- Right: Amount ---
-        is_income = txn.transaction_type == TransactionType.INCOME
-        sign_prefix = "+" if is_income else "−"
-        amount_color = APP_SUCCESS if is_income else APP_DANGER
-        amount_text = format_currency(txn.amount_paise, self._currency)
-
-        # Prepend sign (format_currency doesn't add + for positive).
-        display_amount = f"{sign_prefix}{amount_text}" if is_income else f"−{amount_text}"
-        # Avoid double minus — format_currency already adds minus for negative.
-        # Since amount_paise is always positive, format_currency returns positive string.
-        display_amount = f"{sign_prefix}{amount_text}"
-
-        amount_label = MDLabel(
-            text=display_amount,
-            font_style="Body",
-            role="large",
-            adaptive_height=True,
-            halign="right",
-            theme_text_color="Custom",
-            text_color=amount_color,
-            size_hint_x=None,
-            width=dp(100),
-            pos_hint={"center_y": 0.5},
-        )
-        row.add_widget(amount_label)
-
-        self.add_widget(row)
-
-    @staticmethod
-    def _hex_to_rgba(hex_str: str, alpha: float = 1.0) -> tuple:
-        """Convert a hex color string (#RRGGBB) to an RGBA tuple."""
-        hex_str = hex_str.lstrip("#")
-        if len(hex_str) != 6:
-            return (0.6, 0.6, 0.6, alpha)
-        r = int(hex_str[0:2], 16) / 255
-        g = int(hex_str[2:4], 16) / 255
-        b = int(hex_str[4:6], 16) / 255
-        return (r, g, b, alpha)
-
-    @staticmethod
-    def _icon_char(icon_name: str) -> str:
-        """
-        Return a display character for the icon.
-
-        KivyMD's MDIcon uses icon fonts, but inside a plain MDLabel we use
-        emoji/unicode fallbacks for simplicity. A full implementation would
-        use MDIcon widget.
-        """
-        # Map common MDI icon names to emoji for quick display.
-        _ICON_MAP = {
-            "food": "🍽",
-            "car": "🚗",
-            "train": "🚆",
-            "bus": "🚌",
-            "home": "🏠",
-            "laptop": "💻",
-            "book-open-variant": "📚",
-            "television-play": "🎬",
-            "shopping": "🛍",
-            "heart-pulse": "❤",
-            "lightning-bolt": "⚡",
-            "piggy-bank": "🐷",
-            "wifi": "📶",
-            "briefcase": "💼",
-            "desk": "🪑",
-            "stethoscope": "🩺",
-            "cash": "💰",
-            "tag-multiple": "🏷",
-        }
-        return _ICON_MAP.get(icon_name, "💰")
+    return ft.Container(
+        bgcolor=card_bg,
+        border_radius=16,
+        border=ft.Border.all(1, border_col),
+        padding=ft.Padding.symmetric(horizontal=16, vertical=12),
+        ink=True,
+        on_click=_handle_click if on_tap else None,
+        content=ft.Row(
+            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            controls=[
+                ft.Row(
+                    spacing=12,
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                    controls=[
+                        # Rounded category icon container with soft tint
+                        ft.Container(
+                            width=44,
+                            height=44,
+                            border_radius=14,
+                            bgcolor=icon_tint,
+                            alignment=ft.Alignment.CENTER,
+                            content=ft.Icon(
+                                flet_icon,
+                                color=cat_color,
+                                size=22,
+                            ),
+                        ),
+                        # Title and Date
+                        ft.Column(
+                            spacing=2,
+                            alignment=ft.MainAxisAlignment.CENTER,
+                            controls=[
+                                ft.Text(
+                                    title,
+                                    color=text_col,
+                                    size=15,
+                                    weight=ft.FontWeight.W_600,
+                                    max_lines=1,
+                                    overflow=ft.TextOverflow.ELLIPSIS,
+                                ),
+                                ft.Text(
+                                    date_str,
+                                    color=sub_col,
+                                    size=12,
+                                ),
+                            ],
+                        ),
+                    ],
+                ),
+                # Amount and Category tag matching Stitch
+                ft.Column(
+                    spacing=2,
+                    horizontal_alignment=ft.CrossAxisAlignment.END,
+                    alignment=ft.MainAxisAlignment.CENTER,
+                    controls=[
+                        ft.Text(
+                            display_amount,
+                            color=text_col,
+                            size=15,
+                            weight=ft.FontWeight.W_700,
+                        ),
+                        ft.Text(
+                            category_name.upper(),
+                            color=cat_color,
+                            size=10,
+                            weight=ft.FontWeight.W_700,
+                        ),
+                    ],
+                ),
+            ],
+        ),
+    )

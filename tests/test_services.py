@@ -167,3 +167,13 @@ class TestCategoryService:
         with pytest.raises(ValueError, match="already exists"):
             cat_service.create_category(user.id, "Shopping")
 
+    def test_get_user_categories_alias(self, test_db):
+        profile_service = ProfileService()
+        user = profile_service.create_user(name="Vichu", profession="Developer")
+
+        cat_service = CategoryService()
+        cat_service.create_category(user.id, "Electronics")
+        cats = cat_service.get_user_categories(user.id)
+        assert len(cats) == 1
+        assert cats[0].name == "Electronics"
+

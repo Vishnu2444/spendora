@@ -1,14 +1,19 @@
 """
-Spendora — Application entry point.
+Spendora (Trackz) — Main Application Entry Point (Flet 1.0).
 
-Bootstraps:
-    1. Database (creates tables if needed)
-    2. KivyMD app with Material Design 3 theming
-    3. Screen manager with all screens
-    4. Routing: onboarding → main app (based on user existence)
+Engineered to match Google Stitch "Trackz AI Expense Tracker" design:
+- Dual Responsive Shell: Centers beautifully on Desktop/Web, expands seamlessly on Mobile
+- Centralized Dark Mode & Dynamic Theme Toggling
+- Responsive 5-Slot Dock Navigation Bar:
+    - Tab 0: Home (Dashboard with Balance, Sparkline, Overview, AI Insight, Recent Transactions)
+    - Tab 1: History (Searchable & Filterable transactions list with active chips)
+    - Tab 2: AI Log (AI Financial Concierge chat & actionable insights)
+    - Tab 3: Analytics (Net Gain/Loss, Category charts, Simulation sandbox)
+    - Tab 4: Settings (Profile edit, Currency picker, Cloud backup, Theme segmented buttons)
 
 Run with:
-    python main.py
+    python main.py         # Desktop / Mobile preview
+    python main.py --web   # Web browser mode
 """
 
 from __future__ import annotations
@@ -16,244 +21,346 @@ from __future__ import annotations
 import logging
 import os
 import sys
+import warnings
 
-# ---------------------------------------------------------------------------
-# Kivy environment must be configured BEFORE kivy is imported.
-# ---------------------------------------------------------------------------
-os.environ.setdefault("KIVY_NO_ENV_CONFIG", "1")
+# Clean console warnings for Flet 1.0
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
-# Suppress Kivy's verbose startup log unless DEBUG mode is on.
-# This must come before any kivy import.
-import kivy
+import flet as ft
+import utils.flet_compat  # Flet 1.0 structural and control compatibility layer
 
-kivy.require("2.3.0")
-
-from kivy.config import Config
-
-# Mobile-friendly window size for desktop testing.
-# On Android these are ignored and the full screen is used.
-Config.set("graphics", "width", "400")
-Config.set("graphics", "height", "780")
-Config.set("graphics", "resizable", "1")
-
-from kivy.clock import Clock
-from kivy.core.window import Window
-from kivy.metrics import dp
-from kivy.properties import StringProperty
-from kivy.uix.screenmanager import ScreenManager, SlideTransition
-from kivymd.app import MDApp
-from kivymd.uix.navigationbar import (
-    MDNavigationBar,
-    MDNavigationItem,
-    MDNavigationItemIcon,
-    MDNavigationItemLabel,
-)
-from kivymd.uix.screenmanager import MDScreenManager
-from kivymd.uix.screen import MDScreen
-from kivymd.uix.label import MDLabel
-from kivymd.uix.boxlayout import MDBoxLayout
-
-# ---------------------------------------------------------------------------
-# Internal imports (database, screens, etc.)
-# ---------------------------------------------------------------------------
-from database.database import init_db
-from screens.onboarding.welcome_screen import WelcomeScreen
-from screens.onboarding.category_setup_screen import CategorySetupScreen
-from screens.dashboard.dashboard_screen import DashboardScreen
-from screens.transactions.transactions_screen import TransactionsScreen
-from screens.transactions.add_edit_transaction_screen import AddEditTransactionScreen
-from screens.analytics.analytics_screen import AnalyticsScreen
-from screens.personalization.personalization_screen import PersonalizationScreen
-from screens.assistant.assistant_screen import AssistantScreen
-from services.profile_service import ProfileService
 from config.settings import (
-    APP_NAME,
-    APP_VERSION,
-    THEME_PRIMARY_COLOR,
-    THEME_ACCENT_COLOR,
-    THEME_STYLE,
-    LOG_LEVEL,
+    COLOR_BACKGROUND,
+    COLOR_ON_PRIMARY,
+    COLOR_ON_SURFACE,
+    COLOR_OUTLINE_VARIANT,
+    COLOR_PRIMARY,
+    COLOR_PRIMARY_CONTAINER,
+    COLOR_SECONDARY,
+    COLOR_SURFACE_CARD,
+    COLOR_SURFACE_CONTAINER,
+    COLOR_SURFACE_LOW,
     DEBUG,
+    LOG_LEVEL,
 )
+from config.theme_manager import ThemeMode, theme_manager
+from database.database import init_db
+from database.models import Transaction
+from screens.analytics.analytics_screen import AnalyticsView
+from screens.assistant.assistant_screen import AssistantView
+from screens.dashboard.dashboard_screen import DashboardView
+from screens.onboarding.welcome_screen import WelcomeView
+from screens.personalization.personalization_screen import PersonalizationView
+from screens.transactions.add_edit_transaction_screen import AddEditTransactionView
+from screens.transactions.transactions_screen import TransactionsView
+from services.profile_service import ProfileService
 
-# ---------------------------------------------------------------------------
-# Logging
-# ---------------------------------------------------------------------------
 logging.basicConfig(
-    level=getattr(logging, LOG_LEVEL, logging.WARNING),
+    level=getattr(logging, LOG_LEVEL, logging.INFO),
     format="%(levelname)s [%(name)s] %(message)s",
 )
 logger = logging.getLogger(__name__)
 
 
-# ---------------------------------------------------------------------------
-# Main navigation screen (bottom nav + screens)
-# ---------------------------------------------------------------------------
+def main(page: ft.Page) -> None:
+    """Flet application bootstrap with responsive Web and Mobile support."""
+    # 1. Initialize SQLite Database & Tables
+    init_db()
 
-class NavItem(MDNavigationItem):
-    """A navigation item with icon and label for MDNavigationBar."""
-    icon = StringProperty()
-    text = StringProperty()
+    # 2. Window & Page Settings
+    page.title = "SPENDORA — Intelligent Financial AI"
+    page.padding = 0
+    page.spacing = 0
 
-    def __init__(self, icon: str, text: str, **kwargs) -> None:
-        super().__init__(**kwargs)
-        self.icon = icon
-        self.text = text
-        self.add_widget(MDNavigationItemIcon(icon=icon))
-        self.add_widget(MDNavigationItemLabel(text=text))
+    # Mobile viewport defaults (for desktop preview window)
+    if hasattr(page, "window") and page.window:
+        page.window.width = 440
+        page.window.height = 890
+        page.window.min_width = 360
+        page.window.min_height = 680
 
+    # 3. Theme Initialization
+    theme_manager.set_page(page)
+    theme_manager.load_saved_preference(page)
+    active_colors = theme_manager.get_colors()
+    page.bgcolor = active_colors["background"]
+    page.theme_mode = ft.ThemeMode.DARK if theme_manager.is_dark() else ft.ThemeMode.LIGHT
 
-class MainScreen(MDScreen):
-    """
-    The primary screen shown after onboarding.
+    profile_service = ProfileService()
 
-    Contains a bottom navigation bar with five tabs:
-        Dashboard | Transactions | Analytics | Personalization | AI Assistant
-    """
+    # 4. Responsive Container Shell
+    # On Mobile devices (< 500px width), it stretches fluidly (100% width).
+    # On Web/Desktop (>= 500px width), it stays centered within a 440px phone canvas.
+    content_area = ft.Container(expand=True)
 
-    def __init__(self, **kwargs) -> None:
-        super().__init__(**kwargs)
-        self.name = "main"
-        self._build_ui()
+    def _is_wide() -> bool:
+        return page.width is not None and page.width >= 500
 
-    def _build_ui(self) -> None:
-        """Build the bottom navigation layout."""
-        layout = MDBoxLayout(
-            orientation="vertical",
-            md_bg_color=self.theme_cls.backgroundColor,
-        )
+    app_container = ft.Container(
+        content=content_area,
+        width=440 if _is_wide() else None,
+        expand=True,
+        alignment=ft.Alignment.TOP_CENTER,
+    )
 
-        self._screen_manager = MDScreenManager()
-        self._dashboard = DashboardScreen()
-        self._screen_manager.add_widget(self._dashboard)
-        self._screen_manager.add_widget(TransactionsScreen())
-        self._screen_manager.add_widget(AnalyticsScreen())
-        self._screen_manager.add_widget(PersonalizationScreen())
-        self._screen_manager.add_widget(AssistantScreen())
+    shell_wrapper = ft.Container(
+        content=app_container,
+        alignment=ft.Alignment.TOP_CENTER,
+        expand=True,
+        bgcolor=active_colors["background"],
+    )
 
-        self._nav_bar = MDNavigationBar(
-            on_switch_tabs=self._on_switch_tabs,
-        )
-        self._nav_bar.add_widget(NavItem(icon="view-dashboard", text="Dashboard", active=True))
-        self._nav_bar.add_widget(NavItem(icon="swap-horizontal", text="Transactions"))
-        self._nav_bar.add_widget(NavItem(icon="chart-bar", text="Analytics"))
-        self._nav_bar.add_widget(NavItem(icon="tag-multiple", text="Personalization"))
-        self._nav_bar.add_widget(NavItem(icon="robot", text="Assistant"))
-
-        layout.add_widget(self._screen_manager)
-        layout.add_widget(self._nav_bar)
-        self.add_widget(layout)
-
-    def _on_switch_tabs(
-        self,
-        bar: MDNavigationBar,
-        item: MDNavigationItem,
-        item_icon: str,
-        item_text: str,
-    ) -> None:
-        target_name = item_text.lower()
-        if self._screen_manager.has_screen(target_name):
-            self._screen_manager.current = target_name
-
-    def switch_tab(self, tab_name: str) -> None:
-        """Programmatically switch tabs inside MainScreen."""
-        target = tab_name.lower()
-        if self._screen_manager.has_screen(target):
-            self._screen_manager.current = target
-
-    def on_enter(self, *args) -> None:
-        """Trigger refresh on the active child screen when returning to MainScreen."""
-        current_screen = self._screen_manager.current_screen
-        if current_screen and hasattr(current_screen, "refresh"):
-            current_screen.refresh()
-
-
-# ---------------------------------------------------------------------------
-# Spendora Application
-# ---------------------------------------------------------------------------
-
-class SpendoraApp(MDApp):
-    """
-    Root KivyMD application class.
-
-    Theming, screen manager setup, and initial routing are handled here.
-    Business logic lives in services, not in this class.
-    """
-
-    def build(self) -> ScreenManager:
-        # ---- Theme ----
-        self.theme_cls.theme_style = THEME_STYLE
-        self.theme_cls.primary_palette = THEME_PRIMARY_COLOR
-        self.theme_cls.accent_palette = THEME_ACCENT_COLOR
-        self.theme_cls.material_style = "M3"
-        self.title = APP_NAME
-        Window.clearcolor = (8 / 255, 15 / 255, 25 / 255, 1)
-
-        # ---- Database ----
+    def _on_page_resize(e):
+        wide = _is_wide()
+        app_container.width = 440 if wide else None
         try:
-            init_db()
-            logger.info("Database ready.")
-        except Exception as exc:
-            logger.critical("Failed to initialise database: %s", exc)
-            # Show a minimal error screen and exit gracefully.
-            from kivymd.uix.label import MDLabel
-            root = MDBoxLayout(
-                orientation="vertical",
-                padding=[dp(24), dp(48)],
-                spacing=dp(16),
-                md_bg_color=(1, 1, 1, 1),
-            )
-            root.add_widget(MDLabel(
-                text="⚠️ Spendora could not start.\n\nDatabase initialisation failed.\nPlease check storage permissions.",
-                halign="center",
-                adaptive_height=True,
-            ))
-            return root  # type: ignore[return-value]
+            app_container.update()
+        except Exception:
+            pass
 
-        # ---- Screen Manager ----
-        sm = ScreenManager(transition=SlideTransition())
+    page.on_resize = _on_page_resize
 
-        # Onboarding and main screens
-        welcome = WelcomeScreen()
-        category_setup = CategorySetupScreen()
-        main = MainScreen()
-        add_edit_transaction = AddEditTransactionScreen()
+    # 5. Bottom Navigation Dock (Google Stitch 5-Slot Dock)
+    # [ Home | History | (Floating AI Assist) | Analytics | Settings ]
+    current_tab = [0]
+    dock_slot_controls = []
 
-        sm.add_widget(welcome)
-        sm.add_widget(category_setup)
-        sm.add_widget(main)
-        sm.add_widget(add_edit_transaction)
+    def _get_dock_colors():
+        c = theme_manager.get_colors()
+        active_col = c["primary"]
+        inactive_col = c["outline"]
+        bg_col = c["surface_card"]
+        border_col = c["outline_variant"]
+        return active_col, inactive_col, bg_col, border_col
 
-        # ---- Routing ----
-        # If a user already exists and has completed onboarding → go to main.
-        # Otherwise → start from welcome screen.
-        profile_service = ProfileService()
-        user = profile_service.get_current_user()
+    def _update_dock_ui():
+        active_col, inactive_col, bg_col, border_col = _get_dock_colors()
+        cur = current_tab[0]
+        stitch_dock.bgcolor = bg_col
+        stitch_dock.border = ft.Border.only(top=ft.BorderSide(1, border_col))
+        for idx, (icon_ctrl, dot_ctrl) in enumerate(dock_slot_controls):
+            if icon_ctrl is not None:
+                is_active = (idx == cur)
+                icon_ctrl.color = active_col if is_active else inactive_col
+                dot_ctrl.bgcolor = active_col if is_active else "transparent"
+        try:
+            stitch_dock.update()
+        except Exception:
+            pass
 
-        if user is not None and user.is_onboarding_complete:
-            sm.current = "main"
-            logger.info("Returning user %d detected — skipping onboarding.", user.id)
-        else:
-            sm.current = "welcome"
-            logger.info("No returning user found — starting onboarding.")
+    def _build_dock_slot(idx: int, icon_name: str, tooltip_str: str) -> ft.Container:
+        active_col, inactive_col, _, _ = _get_dock_colors()
+        is_active = (idx == current_tab[0])
+        icon_ctrl = ft.Icon(icon_name, size=24, color=active_col if is_active else inactive_col)
+        dot_ctrl = ft.Container(
+            width=5,
+            height=5,
+            border_radius=3,
+            bgcolor=active_col if is_active else "transparent",
+            margin=ft.Margin(top=2, left=0, right=0, bottom=0),
+        )
+        dock_slot_controls.append((icon_ctrl, dot_ctrl))
+        return ft.Container(
+            ink=True,
+            border_radius=16,
+            padding=ft.Padding.symmetric(horizontal=12, vertical=6),
+            tooltip=tooltip_str,
+            on_click=lambda e, i=idx: _switch_tab(i),
+            content=ft.Column(
+                spacing=0,
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                alignment=ft.MainAxisAlignment.CENTER,
+                tight=True,
+                controls=[icon_ctrl, dot_ctrl],
+            ),
+        )
 
-        return sm
+    # Slots 0 and 1
+    slot_0 = _build_dock_slot(0, ft.Icons.HOME, "Home")
+    slot_1 = _build_dock_slot(1, ft.Icons.RECEIPT_LONG, "History")
 
-    def switch_tab(self, tab_name: str) -> None:
-        """Switch tab inside MainScreen."""
-        if self.root and self.root.has_screen("main"):
-            main_screen = self.root.get_screen("main")
-            if hasattr(main_screen, "switch_tab"):
-                main_screen.switch_tab(tab_name)
+    # Slot 2: Center Elevated Floating AI Assist Action Button
+    dock_slot_controls.append((None, None))
+    slot_2_fab = ft.Container(
+        margin=ft.Margin(top=-22, left=0, right=0, bottom=0),
+        width=52,
+        height=52,
+        border_radius=26,
+        gradient=ft.LinearGradient(
+            begin=ft.Alignment.TOP_LEFT,
+            end=ft.Alignment.BOTTOM_RIGHT,
+            colors=["#1E58FF", "#712AE2"],
+        ),
+        shadow=ft.BoxShadow(
+            spread_radius=1,
+            blur_radius=16,
+            color="#712AE266",
+            offset=ft.Offset(0, 4),
+        ),
+        alignment=ft.Alignment.CENTER,
+        ink=True,
+        tooltip="Spendora AI Concierge",
+        on_click=lambda e: _switch_tab(2),
+        content=ft.Icon(ft.Icons.AUTO_AWESOME, color="#FFFFFF", size=24),
+    )
 
-    def on_start(self) -> None:
-        logger.info("%s %s started.", APP_NAME, APP_VERSION)
+    # Slots 3 and 4
+    slot_3 = _build_dock_slot(3, ft.Icons.BAR_CHART, "Analytics")
+    slot_4 = _build_dock_slot(4, ft.Icons.SETTINGS, "Settings")
 
+    stitch_dock = ft.Container(
+        bgcolor=active_colors["surface_card"],
+        border=ft.Border.only(top=ft.BorderSide(1, active_colors["outline_variant"])),
+        border_radius=ft.BorderRadius(top_left=28, top_right=28, bottom_left=0, bottom_right=0),
+        shadow=ft.BoxShadow(spread_radius=1, blur_radius=20, color="#00000018", offset=ft.Offset(0, -4)),
+        padding=ft.Padding.symmetric(horizontal=16, vertical=6),
+        content=ft.Row(
+            alignment=ft.MainAxisAlignment.SPACE_AROUND,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            controls=[slot_0, slot_1, slot_2_fab, slot_3, slot_4],
+        ),
+    )
 
-# ---------------------------------------------------------------------------
-# Entry point
-# ---------------------------------------------------------------------------
+    app_layout = ft.Column(
+        spacing=0,
+        expand=True,
+        controls=[
+            content_area,
+            stitch_dock,
+        ],
+    )
+    app_container.content = app_layout
+
+    # 6. Global Theme Listener Callback
+    def _on_app_theme_changed(is_dark: bool):
+        c = theme_manager.get_colors()
+        page.theme_mode = ft.ThemeMode.DARK if is_dark else ft.ThemeMode.LIGHT
+        page.bgcolor = c["background"]
+        shell_wrapper.bgcolor = c["background"]
+        _update_dock_ui()
+        try:
+            page.update()
+        except Exception:
+            pass
+
+    theme_manager.register_listener(_on_app_theme_changed)
+
+    # 7. Navigation & Routing Helpers
+    def _switch_tab(index: int) -> None:
+        current_tab[0] = index
+        _update_dock_ui()
+        if index == 0:
+            content_area.content = dashboard_control
+            dashboard_view.refresh()
+        elif index == 1:
+            content_area.content = transactions_control
+            transactions_view.refresh()
+        elif index == 2:
+            content_area.content = assistant_control
+            assistant_view.refresh()
+        elif index == 3:
+            content_area.content = analytics_control
+            analytics_view.refresh()
+        elif index == 4:
+            content_area.content = personalization_control
+            personalization_view.refresh()
+        try:
+            page.update()
+        except Exception:
+            content_area.update()
+
+    def _navigate_to_add(txn_type: str = "EXPENSE") -> None:
+        content_area.content = add_edit_view.build(None, initial_type=txn_type)
+        try:
+            page.update()
+        except Exception:
+            content_area.update()
+
+    def _navigate_to_edit(txn: Transaction) -> None:
+        content_area.content = add_edit_view.build(txn)
+        try:
+            page.update()
+        except Exception:
+            content_area.update()
+
+    def _go_back() -> None:
+        _switch_tab(current_tab[0])
+
+    def _on_logout() -> None:
+        """Reset session to welcome screen."""
+        page.clean()
+        welcome_view = WelcomeView(on_complete=_start_main_app)
+        welcome_view.set_page(page)
+        content_area.content = welcome_view.build()
+        app_container.content = content_area
+        page.add(shell_wrapper)
+        page.update()
+
+    # 8. Instantiate Views
+    dashboard_view = DashboardView(
+        navigate_to_add_txn=_navigate_to_add,
+        navigate_to_edit_txn=_navigate_to_edit,
+        switch_to_tab=_switch_tab,
+    )
+    dashboard_view.set_page(page)
+
+    transactions_view = TransactionsView(
+        navigate_to_add_txn=_navigate_to_add,
+        navigate_to_edit_txn=_navigate_to_edit,
+        switch_to_tab=_switch_tab,
+    )
+    transactions_view.set_page(page)
+
+    add_edit_view = AddEditTransactionView(go_back_fn=_go_back)
+    add_edit_view.set_page(page)
+
+    analytics_view = AnalyticsView(switch_to_tab=_switch_tab)
+    analytics_view.set_page(page)
+
+    assistant_view = AssistantView(switch_to_tab=_switch_tab)
+    assistant_view.set_page(page)
+
+    personalization_view = PersonalizationView(
+        switch_to_tab=_switch_tab,
+        on_logout=_on_logout,
+    )
+    personalization_view.set_page(page)
+
+    dashboard_control = dashboard_view.build()
+    transactions_control = transactions_view.build()
+    add_edit_control = add_edit_view.build()
+    analytics_control = analytics_view.build()
+    assistant_control = assistant_view.build()
+    personalization_control = personalization_view.build()
+
+    # 9. App Router: Onboarding vs Main Application
+    def _start_main_app() -> None:
+        page.clean()
+        content_area.content = dashboard_control
+        dashboard_view.refresh()
+        app_container.content = app_layout
+        _update_dock_ui()
+        page.add(shell_wrapper)
+        page.update()
+
+    if not profile_service.has_profile():
+        welcome_view = WelcomeView(on_complete=_start_main_app)
+        welcome_view.set_page(page)
+        content_area.content = welcome_view.build()
+        app_container.content = content_area
+        page.add(shell_wrapper)
+        page.update()
+    else:
+        _start_main_app()
+
 
 if __name__ == "__main__":
-    SpendoraApp().run()
-
+    is_web = "--web" in sys.argv or "-w" in sys.argv or os.environ.get("SPENDORA_WEB") == "1"
+    if is_web:
+        port = int(os.environ.get("PORT", 8550))
+        print(f"🚀 Launching SPENDORA on Web browser at http://localhost:{port}")
+        ft.app(target=main, view=ft.AppView.WEB_BROWSER, port=port)
+    elif hasattr(ft, "run"):
+        ft.run(main)
+    else:
+        ft.app(target=main)
