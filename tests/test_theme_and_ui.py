@@ -11,12 +11,23 @@ from screens.analytics.analytics_screen import AnalyticsView
 from screens.assistant.assistant_screen import AssistantView
 from screens.personalization.personalization_screen import PersonalizationView
 from screens.onboarding.welcome_screen import WelcomeView
-from database.database import init_db
+from database.database import init_db, get_session
+from database.models import User
+from services.category_service import CategoryService
 
 
 @pytest.fixture(autouse=True)
 def setup_db():
     init_db()
+    with get_session() as session:
+        user = session.get(User, 1)
+        if not user:
+            user = User(id=1, name="Test User", profession="Engineer", currency="INR")
+            session.add(user)
+            session.commit()
+            cat_service = CategoryService()
+            suggestions = cat_service.get_suggestions_for_profession("Engineer")
+            cat_service.accept_suggestions(1, suggestions)
 
 
 def test_theme_manager_modes():
@@ -285,7 +296,7 @@ def test_dashboard_quick_add_income_modal():
     assert dialog.open is False
 
 
-def test_transactions_fab_connects_to_add_income():
+def test_transactions_no_add_fab_and_income_navigation():
     from unittest.mock import MagicMock
     from screens.transactions.transactions_screen import TransactionsView
 
@@ -294,17 +305,14 @@ def test_transactions_fab_connects_to_add_income():
     ctrl = txns.build()
     assert ctrl is not None
 
-    # Test direct _open_add_income call
+    # Test direct _open_add_income call works
     txns._open_add_income()
     mock_navigate.assert_called_with("INCOME")
 
-    # Verify the floating FAB is configured to call _open_add_income
-    # ctrl is ft.Stack: [Column, add_fab]
-    fab = ctrl.controls[1]
-    assert fab.tooltip == "Add Income"
-    mock_navigate.reset_mock()
-    fab.on_click(None)
-    mock_navigate.assert_called_with("INCOME")
+    # Verify the + floating FAB has been removed from history screen
+    # ctrl should be the main layout (ft.Column), with no floating add FAB
+    assert not isinstance(ctrl, ft.Stack)
+    assert isinstance(ctrl, ft.Column)
 
 
 def test_gain_loss_calculator_interactive_calculations():
@@ -512,7 +520,7 @@ def test_ledger_full_working_condition():
 
     # Test CSV export
     analytics._export_ledger_csv()
-    csv_files = [f for f in os.listdir("data") if f.startswith("spendora_ledger_") and f.endswith(".csv")]
+    csv_files = [f for f in os.listdir("data") if (f.startswith("leaksee_ledger_") or f.startswith("spendora_ledger_")) and f.endswith(".csv")]
     assert len(csv_files) > 0
     latest_csv = os.path.join("data", sorted(csv_files)[-1])
     with open(latest_csv, "r", encoding="utf-8") as f:
@@ -698,6 +706,95 @@ def test_transactions_refresh_filtering_logic():
     empty_card = txns._grouped_column.controls[0]
     # Check that empty card contains "No Matching Transactions" text
     assert any("No Matching Transactions" in str(getattr(ctrl, "value", "")) for ctrl in empty_card.content.controls if hasattr(ctrl, "value"))
+
+
+def test_history_no_plus_icon():
+    """Verify that History (Transactions) screen has no + icon or floating action button."""
+    from screens.transactions.transactions_screen import TransactionsView
+
+    txns = TransactionsView()
+    ctrl = txns.build()
+    assert ctrl is not None
+
+    def _find_icons(control):
+        icons = []
+        if isinstance(control, ft.Icon):
+            icons.append(control.icon)
+        elif hasattr(control, "icon") and control.icon is not None:
+            icons.append(control.icon)
+        if hasattr(control, "controls") and control.controls:
+            for c in control.controls:
+                icons.extend(_find_icons(c))
+        if hasattr(control, "content") and control.content:
+            icons.extend(_find_icons(control.content))
+        return icons
+
+    all_icons = _find_icons(ctrl)
+    # The ADD icon (+) must NOT be present in the history screen
+    assert ft.Icons.ADD not in all_icons
+    # History top-level layout must be a clean Column, not a Stack with a FAB
+    assert isinstance(ctrl, ft.Column)
+
+
+def test_dynamic_theme_mode_toggle_without_restart():
+    """Verify that dark/light mode toggle updates all screens dynamically without restart."""
+    from screens.dashboard.dashboard_screen import DashboardView
+    from screens.transactions.transactions_screen import TransactionsView
+    from screens.personalization.personalization_screen import PersonalizationView
+
+    dash = DashboardView()
+    txns = TransactionsView()
+    settings = PersonalizationView()
+
+    # 1. Dark Mode
+    theme_manager.set_theme(ThemeMode.DARK)
+    d_dark = dash.build()
+    t_dark = txns.build()
+    s_dark = settings.build()
+
+    assert theme_manager.is_dark()
+    assert d_dark.controls[0].bgcolor == "#151D30"
+    assert t_dark.controls[0].bgcolor == "#151D30"
+    assert s_dark.controls[0].bgcolor == "#151D30"
+
+    # 2. Toggle to Light Mode - must dynamically return light mode surfaces
+    theme_manager.set_theme(ThemeMode.LIGHT)
+    d_light = dash.build()
+    t_light = txns.build()
+    s_light = settings.build()
+
+    assert not theme_manager.is_dark()
+    from config.settings import COLOR_SURFACE_CARD
+    assert d_light.controls[0].bgcolor == COLOR_SURFACE_CARD
+    assert t_light.controls[0].bgcolor == COLOR_SURFACE_CARD
+    assert s_light.controls[0].bgcolor == COLOR_SURFACE_CARD
+
+    # 3. Toggle back to Dark Mode
+    theme_manager.set_theme(ThemeMode.DARK)
+    d_dark2 = dash.build()
+    assert d_dark2.controls[0].bgcolor == "#151D30"
+
+
+def test_settings_theme_buttons_dynamic_colors():
+    """Verify that Settings theme buttons adapt colors dynamically based on theme mode."""
+    from screens.personalization.personalization_screen import PersonalizationView
+
+    settings = PersonalizationView()
+
+    # In Dark mode
+    theme_manager.set_theme(ThemeMode.DARK)
+    settings._update_theme_buttons()
+    # Active button should have dark active background
+    dark_btn = settings._theme_buttons_row.controls[1]
+    assert dark_btn.bgcolor == "#262A35"
+
+    # In Light mode
+    theme_manager.set_theme(ThemeMode.LIGHT)
+    settings._update_theme_buttons()
+    light_btn = settings._theme_buttons_row.controls[0]
+    from config.settings import COLOR_SURFACE_CARD
+    assert light_btn.bgcolor == COLOR_SURFACE_CARD
+
 
 
 

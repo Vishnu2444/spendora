@@ -21,6 +21,8 @@ from typing import Callable, Optional
 import utils.flet_compat
 import flet as ft
 
+from services.clock_service import clock_service
+
 from config.settings import (
     COLOR_BACKGROUND,
     COLOR_ERROR,
@@ -127,7 +129,7 @@ class AddEditTransactionView:
         self._category_chips_row = ft.Row(wrap=True, spacing=8, run_spacing=8)
 
         # Inputs
-        self._date_text = ft.Text(str(date.today()), size=14, color=COLOR_ON_SURFACE)
+        self._date_text = ft.Text(clock_service.format_day_and_date(self._selected_date), size=14, weight=ft.FontWeight.W_600, color=COLOR_ON_SURFACE)
         self._note_field = ft.TextField(
             hint_text="e.g. Whole Foods, Client Lunch, Salary",
             hint_style=ft.TextStyle(color=COLOR_SECONDARY),
@@ -375,7 +377,7 @@ class AddEditTransactionView:
             if date_picker.value:
                 val = date_picker.value
                 self._selected_date = val.date() if hasattr(val, "date") else val
-                self._date_text.value = str(self._selected_date)
+                self._date_text.value = clock_service.format_day_and_date(self._selected_date)
                 try:
                     self._date_text.update()
                 except Exception:
@@ -532,7 +534,7 @@ class AddEditTransactionView:
             self._amount_display.value = self._amount_str
             self._note_field.value = transaction.description or ""
             self._selected_date = transaction.transaction_date
-            self._date_text.value = str(self._selected_date)
+            self._date_text.value = clock_service.format_day_and_date(self._selected_date)
             if transaction.category_id:
                 self._select_category(transaction.category_id)
         else:
@@ -544,8 +546,8 @@ class AddEditTransactionView:
             self._amount_str = "0.00"
             self._amount_display.value = "0.00"
             self._note_field.value = ""
-            self._selected_date = date.today()
-            self._date_text.value = str(self._selected_date)
+            self._selected_date = clock_service.get_current_date()
+            self._date_text.value = clock_service.format_day_and_date(self._selected_date)
             if self._categories:
                 self._select_category(self._categories[0].id)
 

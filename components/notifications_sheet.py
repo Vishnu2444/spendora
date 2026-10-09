@@ -152,57 +152,128 @@ def show_notifications_dialog(page: ft.Page, switch_to_tab: Optional[Callable[[i
             ),
         )
 
-    # 5 Stitch Notification cards
-    cards_list = [
-        _notification_card(
-            icon=ft.Icons.WARNING_AMBER_ROUNDED,
-            icon_color=COLOR_CORAL_ACCENT,
-            title="AI Budget Warning: Food & Dining",
-            message="You have reached 86% of your monthly dining budget (₹8,450 spent). At this rate, budget exhausts in 4 days.",
-            badge_text="CRITICAL",
-            badge_color=COLOR_CORAL_ACCENT,
-            primary_btn="Adjust Budget",
-            secondary_btn="View Expenses",
-            timestamp="TODAY • 11:30 AM",
+    # Load actual user data & transactions
+    cards_list = []
+    try:
+        from services.profile_service import ProfileService
+        from services.transaction_service import TransactionService
+        from config.settings import DEFAULT_CURRENCY, CURRENCY_SYMBOLS
+        from database.models import TransactionType
+
+        prof_service = ProfileService()
+        txn_service = TransactionService()
+        user = prof_service.get_current_user()
+        user_id = user.id if user else 1
+        cur = user.currency if user and user.currency else DEFAULT_CURRENCY
+        sym = CURRENCY_SYMBOLS.get(cur, "₹")
+
+        txns = txn_service.list_transactions(user_id=user_id)
+        peer_enabled = (prof_service.get_preference(user_id, "ai_peer_insights_enabled", "true") or "").lower() == "true"
+        daily_check_time = prof_service.get_preference(user_id, "daily_expense_check_time", "8:00 PM")
+
+        # 1. Daily check reminder notice if active
+        if daily_check_time != "Off":
+            cards_list.append(
+                _notification_card(
+                    icon=ft.Icons.SCHEDULE,
+                    icon_color=COLOR_PRIMARY,
+                    title="Daily Expense Check Active",
+                    message=f"Evening financial check-in scheduled daily for {daily_check_time}.",
+                    badge_text="REMINDER",
+                    badge_color=COLOR_PRIMARY,
+                    timestamp="SCHEDULED",
+                )
+            )
+
+        # 2. Peer insights card (only if enabled and user has a profession)
+        if peer_enabled and user and user.profession:
+            cards_list.append(
+                _notification_card(
+                    icon=ft.Icons.AUTO_AWESOME,
+                    icon_color=accent_purple,
+                    title="Peer Insights Active",
+                    message=f"Spending metrics benchmarked against {user.profession} lifestyle standards.",
+                    badge_text="INSIGHT",
+                    badge_color=accent_purple,
+                    timestamp="ACTIVE",
+                )
+            )
+
+        # 3. Recent actual transactions as notifications
+        for t in sorted(txns, key=lambda x: (x.transaction_date, x.id), reverse=True)[:5]:
+            is_income = t.transaction_type == TransactionType.INCOME
+            cat_name = t.category.name if t.category else "General"
+            amt_formatted = f"{sym}{t.amount_paise / 100:,.2f}"
+            cards_list.append(
+                _notification_card(
+                    icon=ft.Icons.ACCOUNT_BALANCE if is_income else ft.Icons.RECEIPT_LONG,
+                    icon_color=COLOR_EMERALD_ACCENT if is_income else COLOR_CORAL_ACCENT,
+                    title=f"{'Income Added' if is_income else 'Expense Recorded'}: {amt_formatted}",
+                    message=f"{t.description or cat_name} • Category: {cat_name}",
+                    badge_text="INCOME" if is_income else "EXPENSE",
+                    badge_color=COLOR_EMERALD_ACCENT if is_income else COLOR_CORAL_ACCENT,
+                    timestamp=t.transaction_date.strftime("%d %b %Y"),
+                )
+            )
+    except Exception:
+        cards_list = []
+
+    # Filter chips
+    txn_count = len([c for c in cards_list if "INCOME" in str(c) or "EXPENSE" in str(c)])
+    alert_count = len(cards_list) - txn_count
+    total_count = len(cards_list)
+
+    chip_all = ft.Container(
+        bgcolor=accent_purple,
+        border_radius=16,
+        padding=ft.Padding.symmetric(horizontal=12, vertical=6),
+        ink=True,
+        content=ft.Text(f"All ({total_count})", size=11, weight=ft.FontWeight.W_700, color="#FFFFFF"),
+    )
+    chip_alerts = ft.Container(
+        bgcolor=card_bg,
+        border=ft.Border.all(1, border_color),
+        border_radius=16,
+        padding=ft.Padding.symmetric(horizontal=12, vertical=6),
+        ink=True,
+        content=ft.Text(f"Alerts ({alert_count})", size=11, weight=ft.FontWeight.W_500, color=text_primary),
+    )
+    chip_txns = ft.Container(
+        bgcolor=card_bg,
+        border=ft.Border.all(1, border_color),
+        border_radius=16,
+        padding=ft.Padding.symmetric(horizontal=12, vertical=6),
+        ink=True,
+        content=ft.Text(f"Transactions ({txn_count})", size=11, weight=ft.FontWeight.W_500, color=text_primary),
+    )
+
+    empty_view = ft.Container(
+        expand=True,
+        alignment=ft.Alignment.CENTER,
+        padding=ft.Padding.symmetric(vertical=40, horizontal=20),
+        content=ft.Column(
+            alignment=ft.MainAxisAlignment.CENTER,
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            spacing=10,
+            controls=[
+                ft.Container(
+                    width=60,
+                    height=60,
+                    border_radius=20,
+                    bgcolor=border_color,
+                    alignment=ft.Alignment.CENTER,
+                    content=ft.Icon(ft.Icons.NOTIFICATIONS_NONE, size=30, color=text_secondary),
+                ),
+                ft.Text("No notifications yet", size=15, weight=ft.FontWeight.W_700, color=text_primary),
+                ft.Text(
+                    "You are all caught up! Real-time alerts and ledger updates will appear here as you log transactions.",
+                    size=12,
+                    color=text_secondary,
+                    text_align=ft.TextAlign.CENTER,
+                ),
+            ],
         ),
-        _notification_card(
-            icon=ft.Icons.AUTO_AWESOME,
-            icon_color="#38BDF8",
-            title="Automatic UPI Detection: ₹550",
-            message="Payment to Nature's Basket auto-categorized under Groceries at 11:30 AM.",
-            badge_text="AUTO",
-            badge_color="#38BDF8",
-            primary_btn="Change Category",
-            timestamp="1 hour ago",
-        ),
-        _notification_card(
-            icon=ft.Icons.TRENDING_UP,
-            icon_color=accent_purple,
-            title="Spendora Peer Insight",
-            message="Your tech spends are 18% lower than Bengaluru Software Engineers this month.",
-            badge_text="INSIGHT",
-            badge_color=accent_purple,
-            timestamp="2 hours ago",
-        ),
-        _notification_card(
-            icon=ft.Icons.ACCOUNT_BALANCE,
-            icon_color=COLOR_EMERALD_ACCENT,
-            title="Salary Credited: ₹50,000",
-            message="HDFC Bank Account: ****7721. Real-time auto-allocated with monthly budget.",
-            badge_text="INCOME",
-            badge_color=COLOR_EMERALD_ACCENT,
-            timestamp="YESTERDAY",
-        ),
-        _notification_card(
-            icon=ft.Icons.CREDIT_CARD,
-            icon_color="#6366F1",
-            title="Upcoming Bill: AWS & GitHub Subscriptions",
-            message="₹4,200 due on 1st of next month. Funds allocated in software reserve.",
-            badge_text="RECURRING",
-            badge_color="#6366F1",
-            timestamp="IN 3 DAYS",
-        ),
-    ]
+    )
 
     dialog = ft.AlertDialog(
         modal=True,
@@ -231,7 +302,7 @@ def show_notifications_dialog(page: ft.Page, switch_to_tab: Optional[Callable[[i
                                 padding=ft.Padding.symmetric(horizontal=10, vertical=4),
                                 ink=True,
                                 on_click=lambda e: _close(),
-                                content=ft.Text("Clear", size=11, weight=ft.FontWeight.W_700, color=accent_purple),
+                                content=ft.Text("Close", size=11, weight=ft.FontWeight.W_700, color=accent_purple),
                             ),
                         ],
                     ),
@@ -241,7 +312,7 @@ def show_notifications_dialog(page: ft.Page, switch_to_tab: Optional[Callable[[i
                         content=ft.ListView(
                             spacing=12,
                             controls=cards_list,
-                        ),
+                        ) if cards_list else empty_view,
                     ),
                 ],
             ),

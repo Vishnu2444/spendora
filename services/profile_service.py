@@ -76,6 +76,10 @@ class ProfileService:
         # Validate name.
         clean_name = validate_name(name, field="Name")
 
+        # Map "Others" to "Other"
+        if profession == "Others":
+            profession = "Other"
+
         # Validate profession.
         if profession not in PROFESSIONS:
             raise ValueError(
@@ -163,7 +167,10 @@ class ProfileService:
                 user.name = validate_name(name, field="Name")
 
             if profession is not None:
-                user.profession = profession.strip()
+                p_val = profession.strip()
+                if p_val == "Others":
+                    p_val = "Other"
+                user.profession = p_val
 
             if currency is not None:
                 from config.settings import CURRENCY_MINOR_UNITS

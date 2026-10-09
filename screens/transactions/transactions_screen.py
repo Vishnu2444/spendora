@@ -29,6 +29,7 @@ from typing import Callable, Dict, List, Optional
 
 import flet as ft
 
+from services.clock_service import clock_service
 from components.transaction_card import _resolve_icon, build_transaction_card
 from config.settings import (
     COLOR_BACKGROUND,
@@ -167,6 +168,15 @@ class TransactionsView:
             visible=False,
         )
 
+        # Live Time & Date Indicator
+        self._live_time_text = ft.Text(
+            clock_service.format_short_status(),
+            size=10,
+            color=COLOR_OUTLINE,
+            weight=ft.FontWeight.W_500,
+        )
+        clock_service.subscribe(self._on_clock_tick)
+
         # Chips
         self._chip_filter_btn = ft.Container()
         self._chip_type = ft.Container()
@@ -179,9 +189,27 @@ class TransactionsView:
     def set_page(self, page: ft.Page) -> None:
         self._page = page
 
+    def _on_clock_tick(self, now: datetime) -> None:
+        """Handle real-time 1-second clock ticks."""
+        if hasattr(self, "_live_time_text") and self._live_time_text:
+            new_val = clock_service.format_short_status(now)
+            if self._live_time_text.value != new_val:
+                self._live_time_text.value = new_val
+            if clock_service.is_control_attached(self._live_time_text):
+                try:
+                    self._live_time_text.update()
+                except Exception:
+                    pass
+
     def _on_theme_changed(self, is_dark: bool) -> None:
         self._theme_icon.icon = ft.Icons.LIGHT_MODE if is_dark else ft.Icons.DARK_MODE
         self._theme_icon.icon_color = "#F8FAFC" if is_dark else COLOR_ON_SURFACE
+        if hasattr(self, "_live_time_text") and self._live_time_text:
+            self._live_time_text.color = "#908FA0" if is_dark else COLOR_OUTLINE
+            try:
+                self._live_time_text.update()
+            except Exception:
+                pass
         if hasattr(self, "_top_bar") and self._top_bar:
             self._top_bar.bgcolor = "#151D30" if is_dark else COLOR_SURFACE_CARD
             try:
@@ -474,11 +502,18 @@ class TransactionsView:
                         tooltip="Back to Home",
                         on_click=lambda e: self._switch_to_tab(0) if self._switch_to_tab else None,
                     ),
-                    ft.Text(
-                        "Expenses List",
-                        color=text_col,
-                        size=18,
-                        weight=ft.FontWeight.W_800,
+                    ft.Column(
+                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                        spacing=1,
+                        controls=[
+                            ft.Text(
+                                "Expenses List",
+                                color=text_col,
+                                size=17,
+                                weight=ft.FontWeight.W_800,
+                            ),
+                            self._live_time_text,
+                        ],
                     ),
                     ft.Row(
                         spacing=2,
@@ -658,35 +693,12 @@ class TransactionsView:
             ],
         )
 
-        add_fab = ft.Container(
-            right=16,
-            bottom=24,
-            width=52,
-            height=52,
-            border_radius=26,
-            gradient=ft.LinearGradient(
-                colors=[COLOR_EMERALD_ACCENT, "#059669"],
-            ),
-            alignment=ft.Alignment.CENTER,
-            shadow=ft.BoxShadow(spread_radius=1, blur_radius=14, color=f"{COLOR_EMERALD_ACCENT}66", offset=ft.Offset(0, 4)),
-            ink=True,
-            tooltip="Add Income",
-            on_click=self._open_add_income,
-            content=ft.Icon(ft.Icons.ADD, color=COLOR_ON_PRIMARY, size=24),
-        )
-
-        return ft.Stack(
+        return ft.Column(
             expand=True,
+            spacing=0,
             controls=[
-                ft.Column(
-                    expand=True,
-                    spacing=0,
-                    controls=[
-                        top_bar,
-                        scroll_content,
-                    ],
-                ),
-                add_fab,
+                top_bar,
+                scroll_content,
             ],
         )
 
@@ -1482,6 +1494,10 @@ class TransactionsView:
             sub_col = "#94A3B8" if is_dark else COLOR_OUTLINE
             primary_col = "#8B5CF6" if is_dark else COLOR_PRIMARY
 
+            if hasattr(self, "_live_time_text") and self._live_time_text:
+                self._live_time_text.value = clock_service.format_short_status()
+                self._live_time_text.color = sub_col
+
             # 1. Resolve date range
             start_date: Optional[date] = None
             end_date: Optional[date] = None
@@ -1700,24 +1716,35 @@ class TransactionsView:
                     )
                     self._grouped_column.controls.append(empty_card)
                 else:
-                    # Showcase samples matching Stitch aesthetic
-                    today_items = [
-                        self._build_item("Lunch", "Today, 12:30 PM", 35000, ft.Icons.RESTAURANT, "#8A4CFC", currency, category_name="Food & Drink"),
-                        self._build_item("Uber", "Today, 9:15 AM", 18000, ft.Icons.DIRECTIONS_CAR, "#10B981", currency, category_name="Transport"),
-                        self._build_item("Groceries", "Yesterday", 55000, ft.Icons.SHOPPING_CART, "#CA3513", currency, category_name="Market"),
-                    ]
-                    self._grouped_column.controls.append(self._build_section_card("Today", today_items))
-
-                    yesterday_items = [
-                        self._build_item("Grocery", "Yesterday, 2:30 PM", 120000, ft.Icons.SHOPPING_BAG, "#CA3513", currency, category_name="Supermarket"),
-                        self._build_item("CNG", "Yesterday, 11:50 AM", 15000, ft.Icons.LOCAL_GAS_STATION, "#0041DC", currency, category_name="Automotive"),
-                    ]
-                    self._grouped_column.controls.append(self._build_section_card("Yesterday", yesterday_items))
-
-                    apr_items = [
-                        self._build_item("Movie Ticket", "April 22, 7:00 PM", 60000, ft.Icons.MOVIE, "#8A4CFC", currency, category_name="Entertainment"),
-                    ]
-                    self._grouped_column.controls.append(self._build_section_card("April 22", apr_items))
+                    empty_card = ft.Container(
+                        bgcolor=card_bg,
+                        border=ft.Border.all(1, border_col),
+                        border_radius=20,
+                        padding=ft.Padding.symmetric(vertical=40, horizontal=20),
+                        alignment=ft.Alignment.CENTER,
+                        content=ft.Column(
+                            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                            spacing=10,
+                            controls=[
+                                ft.Container(
+                                    width=56,
+                                    height=56,
+                                    border_radius=28,
+                                    bgcolor=f"{COLOR_PRIMARY}1A" if is_dark else "#EFF6FF",
+                                    alignment=ft.Alignment.CENTER,
+                                    content=ft.Icon(ft.Icons.RECEIPT_LONG_OUTLINED, size=28, color=COLOR_PRIMARY),
+                                ),
+                                ft.Text("No expenses yet", size=16, weight=ft.FontWeight.W_800, color=text_col),
+                                ft.Text(
+                                    "Your transactions will appear here once added.",
+                                    size=12,
+                                    color=sub_col,
+                                    text_align=ft.TextAlign.CENTER,
+                                ),
+                            ],
+                        ),
+                    )
+                    self._grouped_column.controls.append(empty_card)
 
             try:
                 self._grouped_column.update()

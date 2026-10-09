@@ -25,7 +25,7 @@ def test_storage_default_resolution():
     assert data_dir.is_dir()
 
     db_path = get_database_path()
-    assert db_path.name == "spendora.db"
+    assert db_path.name in ("leaksee.db", "spendora.db")
     assert db_path.parent == data_dir
 
     db_url = get_database_url()
@@ -33,14 +33,21 @@ def test_storage_default_resolution():
 
 
 def test_storage_override_via_env(tmp_path):
-    custom_dir = tmp_path / "custom_spendora_data"
-    with patch.dict(os.environ, {"SPENDORA_DATA_DIR": str(custom_dir)}):
+    custom_dir = tmp_path / "custom_leaksee_data"
+    with patch.dict(os.environ, {"LEAKSEE_DATA_DIR": str(custom_dir)}):
         resolved = get_data_dir()
         assert resolved == custom_dir
         assert resolved.exists()
 
         db_path = get_database_path()
-        assert db_path == custom_dir / "spendora.db"
+        assert db_path == custom_dir / "leaksee.db"
+
+    # Backward compatibility with SPENDORA_DATA_DIR
+    custom_legacy = tmp_path / "custom_legacy_data"
+    with patch.dict(os.environ, {"SPENDORA_DATA_DIR": str(custom_legacy), "LEAKSEE_DATA_DIR": ""}):
+        resolved = get_data_dir()
+        assert resolved == custom_legacy
+        assert resolved.exists()
 
 
 def test_android_environment_detection():

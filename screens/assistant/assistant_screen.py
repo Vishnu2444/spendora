@@ -1,10 +1,10 @@
 """
-Spendora — AI Concierge Screen (Flet).
+Leaksee — AI Concierge Screen (Flet).
 
-Matches Google Stitch "Spendora AI Concierge" screen:
-- Header: SPENDORA AI badge + ONLINE status + Avatar
+Matches "Leaksee AI Concierge" screen:
+- Header: LEAKSEE AI badge + ONLINE status + Avatar
 - Top Concierge Banner:
-    - "Intelligent Concierge - Good morning, Vishnu!"
+    - "Intelligent Concierge - Good morning!"
     - Projected Surplus (+₹17,550, +35.1%)
     - Burn Status (Normal, ₹1,180/day)
 - Proactive Insights Snap Carousel:
@@ -13,7 +13,7 @@ Matches Google Stitch "Spendora AI Concierge" screen:
     - Plan Ahead (Salary split 50/30/20 + button Review Split)
 - Recent Query & Intelligence Card:
     - User chat bubble (soft indigo)
-    - Spendora Intelligence card with itemized breakdown & budget progress meter
+    - Leaksee Intelligence card with itemized breakdown & budget progress meter
 - Recommended Inquiries Chips cluster
 - Bottom Floating Chat Input Bar (Attach, Input, Mic, Send)
 """
@@ -26,6 +26,7 @@ from typing import Callable, Optional
 
 import flet as ft
 
+from services.clock_service import clock_service
 from components.chat_bubble import build_chat_bubble
 from config.settings import (
     COLOR_BACKGROUND,
@@ -59,7 +60,7 @@ logger = logging.getLogger(__name__)
 
 
 class AssistantView:
-    """Financial Concierge view matching Google Stitch SPENDORA Concierge design."""
+    """Financial Concierge view matching Leaksee Concierge design."""
 
     def __init__(self, switch_to_tab: Optional[Callable[[int], None]] = None) -> None:
         self._profile_service = ProfileService()
@@ -70,11 +71,20 @@ class AssistantView:
         self._page: Optional[ft.Page] = None
 
         self._greeting_title = ft.Text(
-            "Good morning, Vishnu!",
+            f"{clock_service.get_greeting()[0]}!",
             size=20,
             weight=ft.FontWeight.W_800,
             color=COLOR_ON_SURFACE,
         )
+
+        # Live Time & Date Indicator
+        self._live_time_text = ft.Text(
+            clock_service.format_short_status(),
+            size=9,
+            color=COLOR_OUTLINE,
+            weight=ft.FontWeight.W_500,
+        )
+        clock_service.subscribe(self._on_clock_tick)
 
         self._subtitle_text = ft.Text(
             "I've analyzed your real-time cash flow. Runway looks solid with positive cash delta.",
@@ -120,7 +130,7 @@ class AssistantView:
 
         # Bottom Input Field
         self._input_field = ft.TextField(
-            hint_text="Ask Spendora AI (e.g. 'Can I afford ₹15k?' or 'Spent 250 on coffee')...",
+            hint_text="Ask Leaksee AI (e.g. 'Can I afford ₹15k?' or 'Spent 250 on coffee')...",
             hint_style=ft.TextStyle(color=COLOR_OUTLINE, size=13),
             text_style=ft.TextStyle(color=COLOR_ON_SURFACE, size=14),
             border=getattr(ft, "NoInputBorder", lambda: ft.InputBorder.NONE)(),
@@ -132,11 +142,29 @@ class AssistantView:
     def set_page(self, page: ft.Page) -> None:
         self._page = page
 
+    def _on_clock_tick(self, now: datetime) -> None:
+        """Handle real-time 1-second clock ticks."""
+        if hasattr(self, "_live_time_text") and self._live_time_text:
+            new_val = clock_service.format_short_status(now)
+            if self._live_time_text.value != new_val:
+                self._live_time_text.value = new_val
+            if clock_service.is_control_attached(self._live_time_text):
+                try:
+                    self._live_time_text.update()
+                except Exception:
+                    pass
+
     def _on_toggle_theme(self, e) -> None:
         theme_manager.toggle(self._page)
 
     def _on_theme_changed(self) -> None:
         self._theme_icon.icon = ft.Icons.LIGHT_MODE if theme_manager.is_dark() else ft.Icons.DARK_MODE
+        if hasattr(self, "_live_time_text") and self._live_time_text:
+            self._live_time_text.color = "#908FA0" if theme_manager.is_dark() else COLOR_OUTLINE
+            try:
+                self._live_time_text.update()
+            except Exception:
+                pass
         if self._page:
             try:
                 self._theme_icon.update()
@@ -158,11 +186,11 @@ class AssistantView:
                 pass
 
     def _init_chat_greeting(self) -> None:
-        """Initialize chat with Spendora AI concierge greeting and starter chips if empty."""
+        """Initialize chat with Leaksee AI concierge greeting and starter chips if empty."""
         if not self._chat_column.controls:
-            name = self._user.name if self._user and self._user.name else "Vishnu"
+            name = self._user.name if self._user and self._user.name else ""
             welcome_msg = (
-                f"Hello {name}! 👋 I am your **Spendora AI Financial Concierge** (Personal Financial ChatGPT).\n\n"
+                f"Hello {name}! 👋 I am your **Leaksee AI Financial Concierge** (Personal Financial ChatGPT).\n\n"
                 f"I have live visibility into your balances, budgets, ledger, and cash flow. Here are a few things you can ask me:\n"
                 f"• 💬 *'Can I afford a ₹15,000 purchase?'*\n"
                 f"• 📊 *'How is my 50-30-20 budget split this month?'*\n"
@@ -223,7 +251,7 @@ class AssistantView:
             self._chat_column.update()
         except Exception:
             pass
-        self._show_snackbar("Conversation restarted with Spendora AI.", COLOR_PRIMARY_CONTAINER)
+        self._show_snackbar("Conversation restarted with Leaksee AI.", COLOR_PRIMARY_CONTAINER)
 
     def _on_send(self, e) -> None:
         query = (self._input_field.value or "").strip()
@@ -245,7 +273,7 @@ class AssistantView:
                 spacing=8,
                 controls=[
                     ft.ProgressRing(width=14, height=14, stroke_width=2, color=COLOR_PRIMARY),
-                    ft.Text("Spendora AI is analyzing your finances...", size=12, italic=True, color=COLOR_OUTLINE),
+                    ft.Text("Leaksee AI is analyzing your finances...", size=12, italic=True, color=COLOR_OUTLINE),
                 ],
             ),
         )
@@ -493,8 +521,15 @@ class AssistantView:
                                 controls=[
                                     ft.Row(
                                         spacing=6,
+                                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
                                         controls=[
-                                            ft.Text("SPENDORA", size=15, weight=ft.FontWeight.W_800, color=text_col),
+                                            ft.Image(
+                                                src="icon.png",
+                                                width=20,
+                                                height=20,
+                                                fit="contain",
+                                            ),
+                                            ft.Text("LEAKSEE", size=15, weight=ft.FontWeight.W_800, color=text_col),
                                             ft.Container(
                                                 bgcolor="#8B5CF6" if is_dark else COLOR_PRIMARY,
                                                 border_radius=6,
@@ -505,9 +540,12 @@ class AssistantView:
                                     ),
                                     ft.Row(
                                         spacing=4,
+                                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
                                         controls=[
                                             ft.Container(width=6, height=6, border_radius=3, bgcolor=COLOR_EMERALD_ACCENT),
                                             ft.Text("ONLINE", size=9, weight=ft.FontWeight.W_700, color=COLOR_EMERALD_ACCENT),
+                                            ft.Text("•", size=9, color=sub_col),
+                                            self._live_time_text,
                                         ],
                                     ),
                                 ],
@@ -719,13 +757,13 @@ class AssistantView:
             scroll=ft.ScrollMode.HIDDEN,
             spacing=12,
             controls=[
-                _insight_card("Smart Anomaly", COLOR_CORAL_ACCENT, "Uber spends spiked 28%", "₹1,450 this week vs ₹1,130 avg. Want to set a cap?", "Set Cap ₹1,200", COLOR_PRIMARY_CONTAINER),
-                _insight_card("Tax Advantage", COLOR_EMERALD_ACCENT, "Deduction Discovery", "3 gadget & cloud purchases qualify for deduction.", "Auto-Track", COLOR_EMERALD_ACCENT),
-                _insight_card("Plan Ahead", "#8B5CF6" if is_dark else COLOR_PRIMARY, "Salary Expected Sept 1", "₹50,000 inflow planned. Suggested 50/30/20 split.", "Review Split", "#8B5CF6" if is_dark else COLOR_PRIMARY),
+                _insight_card("Smart Anomaly", COLOR_CORAL_ACCENT, "Budget Optimization", "Keep weekly expenses aligned with your target budget.", "Set Budget", COLOR_PRIMARY_CONTAINER),
+                _insight_card("Tax Advantage", COLOR_EMERALD_ACCENT, "Deduction Discovery", "Identify deductible business and tech expenses.", "Auto-Track", COLOR_EMERALD_ACCENT),
+                _insight_card("Plan Ahead", "#8B5CF6" if is_dark else COLOR_PRIMARY, "Smart Allocations", "Structure future income with the 50/30/20 budget framework.", "Review Split", "#8B5CF6" if is_dark else COLOR_PRIMARY),
             ],
         )
 
-        # Recent Query & Spendora Intelligence Response Box
+        # Recent Query & Leaksee Intelligence Response Box
         recent_query_box = ft.Column(
             spacing=10,
             controls=[
@@ -761,7 +799,7 @@ class AssistantView:
                         ),
                     ],
                 ),
-                # Spendora Intelligence Response Card
+                # Leaksee Intelligence Response Card
                 ft.Container(
                     bgcolor=card_bg,
                     border=ft.Border.all(1, border_col),
@@ -778,7 +816,7 @@ class AssistantView:
                                         spacing=6,
                                         controls=[
                                             ft.Icon(ft.Icons.AUTO_AWESOME, color="#8B5CF6" if is_dark else COLOR_PRIMARY, size=16),
-                                            ft.Text("Spendora Intelligence", size=13, weight=ft.FontWeight.W_700, color=text_col),
+                                            ft.Text("Leaksee Intelligence", size=13, weight=ft.FontWeight.W_700, color=text_col),
                                         ],
                                     ),
                                     ft.Text("10:42 AM", size=10, color=sub_col),
@@ -893,8 +931,8 @@ class AssistantView:
                         icon=ft.Icons.MIC,
                         icon_color=COLOR_OUTLINE,
                         icon_size=18,
-                        tooltip="Speak to Spendora AI",
-                        on_click=lambda e: self._show_snackbar("Listening... Speak your transaction details to Spendora AI."),
+                        tooltip="Speak to Leaksee AI",
+                        on_click=lambda e: self._show_snackbar("Listening... Speak your transaction details to Leaksee AI."),
                     ),
                     ft.IconButton(
                         icon=ft.Icons.ARROW_UPWARD,
@@ -942,8 +980,14 @@ class AssistantView:
         """Refresh user profile and live concierge metrics."""
         try:
             self._user = self._profile_service.get_user()
-            name = self._user.name if self._user and self._user.name else "Vishnu"
-            self._greeting_title.value = f"Good morning, {name}!"
+            name = self._user.name if self._user and self._user.name else ""
+            greet_word, _ = clock_service.get_greeting()
+            if name:
+                self._greeting_title.value = f"{greet_word}, {name}!"
+            else:
+                self._greeting_title.value = f"{greet_word}!"
+            if hasattr(self, "_live_time_text") and self._live_time_text:
+                self._live_time_text.value = clock_service.format_short_status()
 
             user_id = self._user.id if self._user else 1
             curr = self._user.currency if self._user and self._user.currency else DEFAULT_CURRENCY

@@ -1,5 +1,5 @@
 """
-Spendora — Application-wide settings and constants.
+Leaksee — Application-wide settings and constants.
 
 All configuration is centralised here. Sensitive values (API keys etc.)
 are loaded from environment variables via python-dotenv and are never
@@ -31,8 +31,8 @@ ASSETS_DIR: Path = BASE_DIR / "assets"
 
 load_dotenv(BASE_DIR / ".env")
 
-DEBUG: bool = os.getenv("SPENDORA_DEBUG", "false").lower() == "true"
-LOG_LEVEL: str = os.getenv("SPENDORA_LOG_LEVEL", "WARNING")
+DEBUG: bool = (os.getenv("LEAKSEE_DEBUG") or os.getenv("SPENDORA_DEBUG", "false")).lower() == "true"
+LOG_LEVEL: str = os.getenv("LEAKSEE_LOG_LEVEL") or os.getenv("SPENDORA_LOG_LEVEL", "WARNING")
 
 # AI API keys — loaded from environment, NEVER hard-coded.
 GEMINI_API_KEY: str | None = os.getenv("GEMINI_API_KEY")
@@ -279,10 +279,10 @@ PROFESSION_CATEGORY_SUGGESTIONS: dict[str, list[dict]] = {
 }
 
 # ---------------------------------------------------------------------------
-# UI / Theme — Google Stitch "SPENDORA" Design System
+# UI / Theme — Google Stitch "LEAKSEE" Design System
 # ---------------------------------------------------------------------------
 
-APP_NAME: str = "SPENDORA"
+APP_NAME: str = "LEAKSEE"
 APP_VERSION: str = "2.4"
 
 # Primary Brand (Royal & Electric Blue)

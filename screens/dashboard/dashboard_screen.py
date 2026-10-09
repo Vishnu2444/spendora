@@ -1,9 +1,9 @@
 """
-Spendora — Dashboard Screen (Flet).
+Leaksee — Dashboard Screen (Flet).
 
-faithfully reproduces the Google Stitch "SPENDORA - Dashboard" screen:
-- Top Header: Wallet icon, "SPENDORA", "Good Morning ☀️", user avatar with status ring
-- Hero Card: "SPENDORA CARD"
+faithfully reproduces the "LEAKSEE - Dashboard" screen:
+- Top Header: Leaksee coin icon, "LEAKSEE", greeting, user avatar with status ring
+- Hero Card: "LEAKSEE CARD"
     - Electric Blue gradient background (from-[#1E58FF] via-[#2A5BFF] to-[#0036BB])
     - Contactless chip icon (gold gradient)
     - Live Sync pill with pulsing indicator
@@ -23,11 +23,13 @@ faithfully reproduces the Google Stitch "SPENDORA - Dashboard" screen:
 from __future__ import annotations
 
 import logging
-from datetime import date
+from datetime import date, datetime
 from typing import Callable, Optional
 
 import flet as ft
 import flet_charts as fc
+
+from services.clock_service import clock_service
 
 from components.transaction_card import build_transaction_card
 from config.settings import (
@@ -66,7 +68,7 @@ logger = logging.getLogger(__name__)
 
 
 class DashboardView:
-    """Dashboard view matching Google Stitch SPENDORA design."""
+    """Dashboard view matching Leaksee design."""
 
     def __init__(
         self,
@@ -95,29 +97,57 @@ class DashboardView:
         theme_manager.register_listener(self._on_theme_changed)
 
         # Dynamic Controls
+        self._greeting_title = ft.Text(
+            clock_service.get_greeting_str(),
+            size=20,
+            weight=ft.FontWeight.W_800,
+            color=COLOR_ON_SURFACE,
+        )
         self._greeting_subtext = ft.Text(
             spans=[
-                ft.TextSpan("Vishnu", style=ft.TextStyle(color=COLOR_PRIMARY, weight=ft.FontWeight.W_700, size=13)),
+                ft.TextSpan("", style=ft.TextStyle(color=COLOR_PRIMARY, weight=ft.FontWeight.W_700, size=13)),
                 ft.TextSpan(" • ", style=ft.TextStyle(color=COLOR_OUTLINE_VARIANT, size=12)),
-                ft.TextSpan("Software Engineer", style=ft.TextStyle(color=COLOR_ON_SURFACE_VARIANT, weight=ft.FontWeight.W_500, size=12)),
+                ft.TextSpan("", style=ft.TextStyle(color=COLOR_ON_SURFACE_VARIANT, weight=ft.FontWeight.W_500, size=12)),
             ]
         )
         self._date_subtext = ft.Text(
-            date.today().strftime("Today, %B %d"),
+            clock_service.format_live_display(),
             size=11,
             color=COLOR_OUTLINE,
-            weight=ft.FontWeight.W_500,
+            weight=ft.FontWeight.W_600,
         )
+        self._live_indicator_dot = ft.Container(
+            width=6,
+            height=6,
+            border_radius=3,
+            bgcolor=COLOR_EMERALD_ACCENT,
+        )
+        self._live_date_badge = ft.Container(
+            bgcolor="#10B98115",
+            border=ft.Border.all(1, "#10B98133"),
+            border_radius=8,
+            padding=ft.Padding.symmetric(horizontal=7, vertical=3),
+            content=ft.Row(
+                spacing=5,
+                tight=True,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                controls=[
+                    self._live_indicator_dot,
+                    self._date_subtext,
+                ],
+            ),
+        )
+        clock_service.subscribe(self._on_clock_tick)
 
-        # SPENDORA CARD Controls
+        # LEAKSEE CARD Controls
         self._balance_text = ft.Text(
-            "₹42,280",
+            "₹0.00",
             size=30,
             weight=ft.FontWeight.W_800,
             color=COLOR_ON_PRIMARY,
         )
         self._deduction_text = ft.Text(
-            "₹66,280 − ₹24,000",
+            "Income: ₹0.00  •  Expenses: ₹0.00",
             size=12,
             weight=ft.FontWeight.W_700,
             color=COLOR_ON_PRIMARY,
@@ -133,9 +163,45 @@ class DashboardView:
     def set_page(self, page: ft.Page) -> None:
         self._page = page
 
+    def _on_clock_tick(self, now: datetime) -> None:
+        """Handle real-time 1-second clock ticks."""
+        if hasattr(self, "_date_subtext") and self._date_subtext:
+            new_text = clock_service.format_live_display(now)
+            if self._date_subtext.value != new_text:
+                self._date_subtext.value = new_text
+            if clock_service.is_control_attached(self._date_subtext):
+                try:
+                    self._date_subtext.update()
+                except Exception:
+                    pass
+
+        if hasattr(self, "_greeting_title") and self._greeting_title:
+            new_greet = clock_service.get_greeting_str(now)
+            if self._greeting_title.value != new_greet:
+                self._greeting_title.value = new_greet
+            if clock_service.is_control_attached(self._greeting_title):
+                try:
+                    self._greeting_title.update()
+                except Exception:
+                    pass
+
     def _on_theme_changed(self, is_dark: bool) -> None:
         self._theme_icon.icon = ft.Icons.LIGHT_MODE if is_dark else ft.Icons.DARK_MODE
         self._theme_icon.icon_color = "#F8FAFC" if is_dark else COLOR_ON_SURFACE_VARIANT
+        text_col = "#FFFFFF" if is_dark else COLOR_ON_SURFACE
+        sub_col = "#908FA0" if is_dark else COLOR_ON_SURFACE_VARIANT
+        if hasattr(self, "_greeting_title") and self._greeting_title:
+            self._greeting_title.color = text_col
+            try:
+                self._greeting_title.update()
+            except Exception:
+                pass
+        if hasattr(self, "_date_subtext") and self._date_subtext:
+            self._date_subtext.color = sub_col
+            try:
+                self._date_subtext.update()
+            except Exception:
+                pass
         if hasattr(self, "_top_bar") and self._top_bar:
             self._top_bar.bgcolor = "#1E293B" if is_dark else COLOR_SURFACE_CARD
             try:
@@ -386,25 +452,26 @@ class DashboardView:
                         spacing=2,
                         controls=[
                             ft.Row(
-                                spacing=4,
+                                spacing=6,
+                                vertical_alignment=ft.CrossAxisAlignment.CENTER,
                                 controls=[
-                                    ft.Icon(ft.Icons.ACCOUNT_BALANCE_WALLET, color=COLOR_PRIMARY, size=16),
+                                    ft.Image(
+                                        src="icon.png",
+                                        width=20,
+                                        height=20,
+                                        fit="contain",
+                                    ),
                                     ft.Text(
-                                        "SPENDORA",
-                                        size=11,
+                                        "LEAKSEE",
+                                        size=12,
                                         weight=ft.FontWeight.W_800,
                                         color=COLOR_PRIMARY,
                                     ),
                                 ],
                             ),
-                            ft.Text(
-                                "Good Morning ☀️",
-                                size=20,
-                                weight=ft.FontWeight.W_800,
-                                color=text_col,
-                            ),
+                            self._greeting_title,
                             self._greeting_subtext,
-                            self._date_subtext,
+                            self._live_date_badge,
                         ],
                     ),
                     ft.Row(
@@ -477,7 +544,7 @@ class DashboardView:
         )
         self._top_bar = top_bar
 
-        # SPENDORA CARD Hero (Stitch Design)
+        # LEAKSEE CARD Hero
         hero_card = ft.Container(
             border_radius=24,
             padding=ft.Padding.all(20),
@@ -507,7 +574,7 @@ class DashboardView:
                                         spacing=6,
                                         controls=[
                                             ft.Text(
-                                                "SPENDORA CARD",
+                                                "LEAKSEE CARD",
                                                 size=10,
                                                 weight=ft.FontWeight.W_800,
                                                 color=COLOR_PRIMARY_FIXED,
@@ -566,14 +633,14 @@ class DashboardView:
                                             spacing=4,
                                             controls=[
                                                 ft.Icon(ft.Icons.SYNC_ALT, color=COLOR_PRIMARY_FIXED, size=14),
-                                                ft.Text("Salary − Expenses", size=11, color=COLOR_PRIMARY_FIXED, weight=ft.FontWeight.W_600),
+                                                ft.Text("Cashflow", size=11, color=COLOR_PRIMARY_FIXED, weight=ft.FontWeight.W_600),
                                             ],
                                         ),
                                         self._deduction_text,
                                     ],
                                 ),
                                 ft.Text(
-                                    "Real-time auto-deducted from monthly salary",
+                                    "Real-time auto-deducted from recorded income",
                                     size=10,
                                     color=f"{COLOR_PRIMARY_FIXED}CC",
                                 ),
@@ -753,8 +820,8 @@ class DashboardView:
         try:
             self._user = self._profile_service.get_current_user()
             user_id = self._user.id if self._user else 1
-            user_name = self._user.name if self._user and self._user.name else "Vishnu"
-            profession = self._user.profession if self._user and self._user.profession else "Software Engineer"
+            user_name = self._user.name if self._user and self._user.name else ""
+            profession = self._user.profession if self._user and self._user.profession else ""
             currency = self._user.currency if self._user and self._user.currency else DEFAULT_CURRENCY
             start_d, end_d = date_range_this_month()
 
@@ -772,28 +839,26 @@ class DashboardView:
                 ft.TextSpan(profession, style=ft.TextStyle(color=sub_col, weight=ft.FontWeight.W_500, size=12)),
             ]
             self._greeting_subtext.value = None
-            self._date_subtext.value = date.today().strftime("Today, %B %d")
+            self._greeting_title.value = clock_service.get_greeting_str()
+            self._greeting_title.color = text_col
+            self._date_subtext.value = clock_service.format_live_display()
+            self._date_subtext.color = sub_col
 
-            # In Stitch Design: Real-time Balance is derived from monthly salary minus expenses
-            salary = (self._user.monthly_income_paise if (self._user and self._user.monthly_income_paise) else 6628000)
+            # Real-time Balance is derived from user income minus expenses
+            user_salary = (self._user.monthly_income_paise if (self._user and self._user.monthly_income_paise) else 0)
             summary = self._calculation_service.calculate_period_summary(user_id, start_d, end_d)
             income_extra = summary.get("total_income_paise", 0)
             expense = summary.get("total_expenses_paise", 0)
 
-            if expense == 0 and income_extra == 0 and (not self._user or not self._user.monthly_income_paise):
-                display_salary = 6628000
-                display_expense = 2400000
-                real_time_bal = 4228000
-            else:
-                display_salary = salary + income_extra
-                display_expense = expense
-                real_time_bal = display_salary - display_expense
+            display_salary = user_salary + income_extra
+            display_expense = expense
+            real_time_bal = display_salary - display_expense
 
             bal_str = format_currency(real_time_bal, currency)
             self._balance_text.value = bal_str
             inc_str = format_currency(display_salary, currency)
-            exp_str = format_currency(display_expense if display_expense > 0 else 2400000, currency)
-            self._deduction_text.value = f"{inc_str} − {exp_str}"
+            exp_str = format_currency(display_expense, currency)
+            self._deduction_text.value = f"Income: {inc_str}  •  Expenses: {exp_str}"
 
             # Spending Breakdown Donut Chart
             dist = self._analytics_service.get_category_spending_distribution(user_id, start_d, end_d)
@@ -801,102 +866,96 @@ class DashboardView:
             sections = []
             self._legend_column.controls.clear()
 
-            # Add legend header
-            self._legend_column.controls.append(
-                ft.Row(
-                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                    controls=[
-                        ft.Text("Label", size=11, weight=ft.FontWeight.W_700, color=COLOR_OUTLINE),
-                        ft.Text("Amount", size=11, weight=ft.FontWeight.W_700, color=COLOR_OUTLINE),
-                    ],
-                )
-            )
-
-            stitch_samples = [
-                {"name": "Cloud / Tech", "amount": 120000, "color": "#0041DC", "pct": 40.0},
-                {"name": "Groceries", "amount": 55000, "color": "#FF7A5C", "pct": 25.0},
-                {"name": "Uber", "amount": 18000, "color": "#712AE2", "pct": 15.0},
-                {"name": "CNG & Gas", "amount": 15000, "color": "#10B981", "pct": 10.0},
-                {"name": "Lunch", "amount": 35000, "color": "#FF5A36", "pct": 10.0},
-            ]
-
-            display_items = []
-            if dist:
-                for idx, item in enumerate(dist[:5]):
-                    c_name = item.get("name") or item.get("category_name") or "Expense"
-                    amt = item.get("amount_paise") or item.get("total_paise") or 0
-                    pct = float(item.get("percentage") or 15.0)
-                    c_col = item.get("color") or donut_palette[idx % len(donut_palette)]
-                    display_items.append({"name": c_name, "amount": amt, "color": c_col, "pct": pct})
-
-            # If user has fewer than 5 categories, pad with Stitch sample data so chart is vibrant & complete
-            if len(display_items) < 5:
-                existing_names = {d["name"].lower() for d in display_items}
-                for s in stitch_samples:
-                    if s["name"].lower() not in existing_names:
-                        display_items.append(s)
-                    if len(display_items) >= 5:
-                        break
-
-            for it in display_items:
-                sections.append(
-                    fc.PieChartSection(
-                        value=it["pct"],
-                        color=it["color"],
-                        radius=16,
-                        title="",
-                    )
-                )
+            if dist and display_expense > 0:
                 self._legend_column.controls.append(
                     ft.Row(
                         alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                         controls=[
-                            ft.Row(
-                                spacing=6,
-                                tight=True,
-                                controls=[
-                                    ft.Container(width=8, height=8, border_radius=4, bgcolor=it["color"]),
-                                    ft.Text(it["name"], size=12, weight=ft.FontWeight.W_500, color=text_col),
-                                ],
-                            ),
-                            ft.Text(format_currency(it["amount"], currency), size=12, weight=ft.FontWeight.W_700, color=text_col),
+                            ft.Text("Label", size=11, weight=ft.FontWeight.W_700, color=COLOR_OUTLINE),
+                            ft.Text("Amount", size=11, weight=ft.FontWeight.W_700, color=COLOR_OUTLINE),
                         ],
                     )
                 )
+                for idx, item in enumerate(dist[:5]):
+                    c_name = item.get("name") or item.get("category_name") or "Expense"
+                    amt = item.get("amount_paise") or item.get("total_paise") or 0
+                    pct = float(item.get("percentage") or 0.0)
+                    c_col = item.get("color") or donut_palette[idx % len(donut_palette)]
+                    sections.append(
+                        fc.PieChartSection(
+                            value=pct if pct > 0 else 1.0,
+                            color=c_col,
+                            radius=16,
+                            title="",
+                        )
+                    )
+                    self._legend_column.controls.append(
+                        ft.Row(
+                            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                            controls=[
+                                ft.Row(
+                                    spacing=6,
+                                    tight=True,
+                                    controls=[
+                                        ft.Container(width=8, height=8, border_radius=4, bgcolor=c_col),
+                                        ft.Text(c_name, size=12, weight=ft.FontWeight.W_500, color=text_col),
+                                    ],
+                                ),
+                                ft.Text(format_currency(amt, currency), size=12, weight=ft.FontWeight.W_700, color=text_col),
+                            ],
+                        )
+                    )
 
-            # Center overlay with Total
-            total_center = display_expense if display_expense > 0 else 2400000
-            self._donut_container.content = ft.Stack(
-                alignment=ft.Alignment.CENTER,
-                controls=[
-                    fc.PieChart(
-                        sections=sections,
-                        sections_space=3,
-                        center_space_radius=36,
-                        height=140,
-                    ),
-                    ft.Column(
-                        spacing=0,
-                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                self._donut_container.content = ft.Stack(
+                    alignment=ft.Alignment.CENTER,
+                    controls=[
+                        fc.PieChart(
+                            sections=sections,
+                            sections_space=3,
+                            center_space_radius=36,
+                            height=140,
+                        ),
+                        ft.Column(
+                            spacing=0,
+                            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                            alignment=ft.MainAxisAlignment.CENTER,
+                            controls=[
+                                ft.Text("TOTAL", size=9, weight=ft.FontWeight.W_800, color=COLOR_OUTLINE),
+                                ft.Text(
+                                    format_currency(display_expense, currency),
+                                    size=13,
+                                    weight=ft.FontWeight.W_800,
+                                    color=text_col,
+                                ),
+                            ],
+                        ),
+                    ],
+                )
+            else:
+                self._legend_column.controls.append(
+                    ft.Container(
+                        padding=ft.Padding.symmetric(vertical=24),
+                        content=ft.Text("No expenses yet", size=13, weight=ft.FontWeight.W_500, color=sub_col),
+                    )
+                )
+                self._donut_container.content = ft.Container(
+                    height=140,
+                    alignment=ft.Alignment.CENTER,
+                    content=ft.Column(
                         alignment=ft.MainAxisAlignment.CENTER,
+                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                        spacing=6,
                         controls=[
-                            ft.Text("TOTAL", size=9, weight=ft.FontWeight.W_800, color=COLOR_OUTLINE),
-                            ft.Text(
-                                format_currency(total_center, currency) if display_expense > 0 else "₹24k",
-                                size=13,
-                                weight=ft.FontWeight.W_800,
-                                color=text_col,
-                            ),
+                            ft.Icon(ft.Icons.PIE_CHART_OUTLINE, size=32, color=sub_col),
+                            ft.Text("No expenses yet", size=12, weight=ft.FontWeight.W_600, color=sub_col),
                         ],
                     ),
-                ],
-            )
+                )
 
             # Recent Transactions Feed
             recent_txns = self._transaction_service.get_recent_transactions(user_id=user_id, limit=5)
             self._recent_list.controls.clear()
 
-            rendered_count = 0
             if recent_txns:
                 for txn in recent_txns:
                     self._recent_list.controls.append(
@@ -906,58 +965,25 @@ class DashboardView:
                             on_tap=self._navigate_to_edit_txn,
                         )
                     )
-                    rendered_count += 1
-
-            # If user has fewer than 4 transactions, append Stitch showcase items for rich UI
-            if rendered_count < 4:
-                showcase_items = [
-                    ("Lunch", "Today, 12:30 PM", 35000, "Food & Drink", ft.Icons.RESTAURANT, "#8A4CFC", "#CA3513"),
-                    ("Uber", "Today, 9:15 AM", 18000, "Transport", ft.Icons.DIRECTIONS_CAR, "#10B981", "#059669"),
-                    ("Groceries", "Yesterday", 55000, "Market", ft.Icons.SHOPPING_CART, "#CA3513", "#CA3513"),
-                    ("CNG Fuel", "Yesterday, 11:50 AM", 15000, "Automotive", ft.Icons.LOCAL_GAS_STATION, "#0041DC", "#0041DC"),
-                ]
-                for title, dt_lbl, amt, cat_lbl, icon, icon_col, tag_col in showcase_items[rendered_count:]:
-                    self._recent_list.controls.append(
-                        ft.Container(
-                            bgcolor=card_bg,
-                            border=ft.Border.all(1, border_col),
-                            border_radius=16,
-                            padding=ft.Padding.symmetric(horizontal=14, vertical=12),
-                            content=ft.Row(
-                                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                                controls=[
-                                    ft.Row(
-                                        spacing=12,
-                                        controls=[
-                                            ft.Container(
-                                                width=42,
-                                                height=42,
-                                                border_radius=14,
-                                                bgcolor=f"{icon_col}20",
-                                                alignment=ft.Alignment.CENTER,
-                                                content=ft.Icon(icon, color=icon_col, size=20),
-                                            ),
-                                            ft.Column(
-                                                spacing=2,
-                                                controls=[
-                                                    ft.Text(title, size=14, weight=ft.FontWeight.W_700, color=text_col),
-                                                    ft.Text(dt_lbl, size=11, color=sub_col),
-                                                ],
-                                            ),
-                                        ],
-                                    ),
-                                    ft.Column(
-                                        horizontal_alignment=ft.CrossAxisAlignment.END,
-                                        spacing=2,
-                                        controls=[
-                                            ft.Text(format_currency(amt, currency), size=14, weight=ft.FontWeight.W_800, color=text_col),
-                                            ft.Text(cat_lbl, size=10, weight=ft.FontWeight.W_700, color=tag_col),
-                                        ],
-                                    ),
-                                ],
-                            ),
-                        )
+            else:
+                self._recent_list.controls.append(
+                    ft.Container(
+                        bgcolor=card_bg,
+                        border=ft.Border.all(1, border_col),
+                        border_radius=16,
+                        padding=ft.Padding.symmetric(vertical=28, horizontal=16),
+                        alignment=ft.Alignment.CENTER,
+                        content=ft.Column(
+                            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                            spacing=8,
+                            controls=[
+                                ft.Icon(ft.Icons.RECEIPT_LONG_OUTLINED, size=32, color=sub_col),
+                                ft.Text("No expenses yet", size=14, weight=ft.FontWeight.W_700, color=text_col),
+                                ft.Text("Your recorded transactions will appear here", size=11, color=sub_col),
+                            ],
+                        ),
                     )
+                )
 
             if self._page:
                 try:

@@ -1,5 +1,5 @@
 """
-Spendora — Insights / Total Expenses, Analytics & Financial Ledger screen (Flet).
+Leaksee — Insights / Total Expenses, Analytics & Financial Ledger screen (Flet).
 
 Provides comprehensive financial intelligence matching Google Stitch:
 - Segmented Control: [ Gain / Loss Calculator | Ledger History ]
@@ -58,9 +58,10 @@ import logging
 import os
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-import utils.flet_compat
 import flet as ft
 import flet_charts as fc
+
+from services.clock_service import clock_service
 
 from config.settings import (
     COLOR_BACKGROUND,
@@ -138,8 +139,8 @@ class AnalyticsView:
             color=COLOR_ON_SURFACE,
         )
         self._calendar_grid = ft.Column(spacing=6)
-        self._salary_card_val = ft.Text("₹50,000", size=22, weight=ft.FontWeight.W_800, color=COLOR_ON_PRIMARY)
-        self._expense_card_val = ft.Text("₹32,450", size=22, weight=ft.FontWeight.W_800, color=COLOR_ON_PRIMARY)
+        self._salary_card_val = ft.Text("₹0.00", size=22, weight=ft.FontWeight.W_800, color=COLOR_ON_PRIMARY)
+        self._expense_card_val = ft.Text("₹0.00", size=22, weight=ft.FontWeight.W_800, color=COLOR_ON_PRIMARY)
         self._donut_chart_container = ft.Container(height=180, alignment=ft.Alignment.CENTER)
 
         # Dynamic Controls - Gain & Loss Interactive Calculator
@@ -385,12 +386,39 @@ class AnalyticsView:
         # Compatibility alias
         self._btn_gain_loss = self._btn_ledger
 
+        # Live Time & Date Indicator
+        self._live_time_text = ft.Text(
+            clock_service.format_short_status(),
+            size=10,
+            color=COLOR_OUTLINE,
+            weight=ft.FontWeight.W_500,
+        )
+        clock_service.subscribe(self._on_clock_tick)
+
     def set_page(self, page: ft.Page) -> None:
         self._page = page
+
+    def _on_clock_tick(self, now: datetime) -> None:
+        """Handle real-time 1-second clock ticks."""
+        if hasattr(self, "_live_time_text") and self._live_time_text:
+            new_val = clock_service.format_short_status(now)
+            if self._live_time_text.value != new_val:
+                self._live_time_text.value = new_val
+            if clock_service.is_control_attached(self._live_time_text):
+                try:
+                    self._live_time_text.update()
+                except Exception:
+                    pass
 
     def _on_theme_changed(self, is_dark: bool) -> None:
         self._theme_icon.icon = ft.Icons.LIGHT_MODE if is_dark else ft.Icons.DARK_MODE
         self._theme_icon.icon_color = "#F8FAFC" if is_dark else COLOR_ON_SURFACE
+        if hasattr(self, "_live_time_text") and self._live_time_text:
+            self._live_time_text.color = "#908FA0" if is_dark else COLOR_OUTLINE
+            try:
+                self._live_time_text.update()
+            except Exception:
+                pass
         if hasattr(self, "_top_bar") and self._top_bar:
             self._top_bar.bgcolor = "#1E293B" if is_dark else COLOR_SURFACE_CARD
             try:
@@ -485,6 +513,8 @@ class AnalyticsView:
         self.refresh()
 
     def _update_segmented_header(self) -> None:
+        is_dark = theme_manager.is_dark()
+        inactive_col = "#94A3B8" if is_dark else COLOR_ON_SURFACE_VARIANT
         if self._active_tab == "CALCULATOR":
             self._btn_calculator.bgcolor = COLOR_SECONDARY
             self._btn_calculator.content.color = COLOR_ON_PRIMARY
@@ -494,12 +524,12 @@ class AnalyticsView:
             )
 
             self._btn_ledger.bgcolor = None
-            self._btn_ledger.content.color = COLOR_ON_SURFACE_VARIANT
+            self._btn_ledger.content.color = inactive_col
             self._btn_ledger.content.weight = ft.FontWeight.W_500
             self._btn_ledger.shadow = None
         else:
             self._btn_calculator.bgcolor = None
-            self._btn_calculator.content.color = COLOR_ON_SURFACE_VARIANT
+            self._btn_calculator.content.color = inactive_col
             self._btn_calculator.content.weight = ft.FontWeight.W_500
             self._btn_calculator.shadow = None
 
@@ -977,6 +1007,18 @@ class AnalyticsView:
         text_col = "#FFFFFF" if is_dark else COLOR_ON_SURFACE
         sub_col = "#94A3B8" if is_dark else COLOR_OUTLINE
         primary_col = "#8B5CF6" if is_dark else COLOR_PRIMARY
+        self._month_title.color = text_col
+        self._calc_income_input.text_style = ft.TextStyle(weight=ft.FontWeight.W_700, color=text_col)
+        self._calc_income_input.border_color = border_col
+        self._calc_fixed_input.text_style = ft.TextStyle(weight=ft.FontWeight.W_700, color=text_col)
+        self._calc_fixed_input.border_color = border_col
+        self._calc_variable_input.text_style = ft.TextStyle(weight=ft.FontWeight.W_700, color=text_col)
+        self._calc_variable_input.border_color = border_col
+        self._calc_margin_text.color = text_col
+        self._calc_daily_spend_text.color = text_col
+        self._calc_annual_text.color = text_col
+        self._calc_insight_text.color = text_col
+        self._calc_retained_label.color = sub_col
 
         # ------------------------------------------------------------------
         # CARD 1: Gain / Loss Projection Hero Bento Card
@@ -1913,7 +1955,7 @@ class AnalyticsView:
         try:
             os.makedirs("data", exist_ok=True)
             today_str = date.today().strftime("%Y%m%d_%H%M%S")
-            csv_path = os.path.abspath(os.path.join("data", f"spendora_ledger_{today_str}.csv"))
+            csv_path = os.path.abspath(os.path.join("data", f"leaksee_ledger_{today_str}.csv"))
 
             user_id = self._user.id if self._user else 1
             currency = self._user.currency if self._user and self._user.currency else DEFAULT_CURRENCY
@@ -1973,7 +2015,7 @@ class AnalyticsView:
 
             if self._page:
                 self._page.snack_bar = ft.SnackBar(
-                    ft.Text(f"Ledger exported to data/spendora_ledger_{today_str}.csv ({len(rows)} entries)!", color="#FFFFFF"),
+                    ft.Text(f"Ledger exported to data/leaksee_ledger_{today_str}.csv ({len(rows)} entries)!", color="#FFFFFF"),
                     bgcolor="#10B981",
                     duration=3000,
                 )
@@ -2514,10 +2556,16 @@ class AnalyticsView:
 
     def build(self) -> ft.Control:
         """Construct Flet layout for Insights / Total Expenses & Analytics screen."""
+        is_dark = theme_manager.is_dark()
+        top_bg = "#1E293B" if is_dark else COLOR_SURFACE_CARD
+        border_col = "#222E48" if is_dark else COLOR_OUTLINE_VARIANT
+        text_col = "#FFFFFF" if is_dark else COLOR_ON_SURFACE
+        pill_bg = "#1E2433" if is_dark else COLOR_SURFACE_CONTAINER
+
         # Top App Bar
         top_bar = ft.Container(
-            bgcolor="#1E293B" if theme_manager.is_dark() else COLOR_SURFACE_CARD,
-            border=ft.Border.only(bottom=ft.BorderSide(1, COLOR_OUTLINE_VARIANT)),
+            bgcolor=top_bg,
+            border=ft.Border.only(bottom=ft.BorderSide(1, border_col)),
             padding=ft.Padding.symmetric(horizontal=16, vertical=10),
             content=ft.Row(
                 alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
@@ -2526,15 +2574,22 @@ class AnalyticsView:
                     ft.IconButton(
                         icon=ft.Icons.CHEVRON_LEFT,
                         icon_size=24,
-                        icon_color=COLOR_ON_SURFACE,
+                        icon_color=text_col,
                         tooltip="Back to Home",
                         on_click=lambda e: self._switch_to_tab(0) if self._switch_to_tab else None,
                     ),
-                    ft.Text(
-                        "Insights",
-                        color=COLOR_ON_SURFACE,
-                        size=18,
-                        weight=ft.FontWeight.W_800,
+                    ft.Column(
+                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                        spacing=1,
+                        controls=[
+                            ft.Text(
+                                "Insights",
+                                color=text_col,
+                                size=17,
+                                weight=ft.FontWeight.W_800,
+                            ),
+                            self._live_time_text,
+                        ],
                     ),
                     self._theme_icon,
                 ],
@@ -2546,8 +2601,8 @@ class AnalyticsView:
         self._update_segmented_header()
         segmented_pill = ft.Container(
             margin=ft.Padding.symmetric(horizontal=16, vertical=6),
-            bgcolor=COLOR_SURFACE_CONTAINER,
-            border=ft.Border.all(1, f"{COLOR_OUTLINE_VARIANT}66"),
+            bgcolor=pill_bg,
+            border=ft.Border.all(1, "#334155" if is_dark else f"{COLOR_OUTLINE_VARIANT}66"),
             border_radius=24,
             padding=ft.Padding.all(3),
             content=ft.Row(
@@ -2579,6 +2634,9 @@ class AnalyticsView:
             user_id = self._user.id if self._user else 1
             currency = self._user.currency if self._user and self._user.currency else DEFAULT_CURRENCY
             sym = CURRENCY_SYMBOLS.get(currency, "₹")
+
+            if hasattr(self, "_live_time_text") and self._live_time_text:
+                self._live_time_text.value = clock_service.format_short_status()
 
             if self._active_tab == "CALCULATOR":
                 self._refresh_calculator_and_charts(user_id, currency, sym)
@@ -2622,8 +2680,8 @@ class AnalyticsView:
         calc_income = cal_summary.get("total_income_paise", 0)
         calc_expense = cal_summary.get("total_expenses_paise", 0)
 
-        self._salary_card_val.value = format_currency(calc_income, currency) if calc_income > 0 else "₹0"
-        self._expense_card_val.value = format_currency(calc_expense, currency) if calc_expense > 0 else "₹0"
+        self._salary_card_val.value = format_currency(calc_income, currency)
+        self._expense_card_val.value = format_currency(calc_expense, currency)
 
         # Auto-sync calculator on initial load
         if not self._calc_synced:

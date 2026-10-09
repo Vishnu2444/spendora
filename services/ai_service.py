@@ -78,7 +78,7 @@ class CandidateTransaction(BaseModel):
 
 
 class AIChatResponse:
-    """Structured response from the Spendora AI Personal Financial Advisor."""
+    """Structured response from the Leaksee AI Personal Financial Advisor."""
 
     def __init__(
         self,
@@ -268,7 +268,7 @@ class AIService:
         require_confirmation: bool = False,
     ) -> AIChatResponse:
         """
-        Chat with Spendora AI — Personal Financial ChatGPT.
+        Chat with Leaksee AI — Personal Financial ChatGPT.
 
         Capabilities:
         - Resolves user context dynamically from database.
@@ -740,23 +740,23 @@ class AIService:
         - Scope SUMMARY: High-level totals (excludes itemized transaction log).
         """
         base_instruction = (
-            "You are Spendora Assistant, an elite personal financial ChatGPT and wealth coach.\n"
+            "You are Leaksee Assistant, an elite personal financial ChatGPT and wealth coach.\n"
             "CRITICAL INSTRUCTIONS:\n"
             "1. Ground all answers strictly in the Verified Financial Data provided below (if any). NEVER invent or guess figures.\n"
             "2. If the user asks about an amount or category not found in the data, state clearly that no records exist for it.\n"
             f"3. Always quote exact figures with the user's currency symbol ({context['currency_sym']}).\n"
             "4. Format answers beautifully using Markdown (bold figures, bullet points, concise sections).\n"
             "5. Keep answers friendly, conversational, actionable, and concise (1 to 3 short paragraphs).\n"
-            "6. Always frame financial insights non-authoritatively with context: 'Based on your recorded surplus of X, and assuming all recent expenses have been logged...'. State clearly that Spendora provides informational analysis, not certified financial or tax advice.\n\n"
+            "6. Always frame financial insights non-authoritatively with context: 'Based on your recorded surplus of X, and assuming all recent expenses have been logged...'. State clearly that Leaksee provides informational analysis, not certified financial or tax advice.\n\n"
         )
 
         # 1. SCOPE: NONE (Generic question or definition -> ZERO financial data)
         if scope == AIContextScope.NONE:
             return (
-                "You are Spendora Assistant, an elite personal financial ChatGPT and wealth coach.\n"
+                "You are Leaksee Assistant, an elite personal financial ChatGPT and wealth coach.\n"
                 "CRITICAL INSTRUCTIONS:\n"
                 "1. Answer the user's question clearly, concisely, and helpfully using standard financial principles.\n"
-                "2. State clearly that Spendora provides informational financial analysis, not certified financial or tax advice.\n"
+                "2. State clearly that Leaksee provides informational financial analysis, not certified financial or tax advice.\n"
                 "3. Keep answers friendly, conversational, and formatted with Markdown.\n"
                 "[DATA MINIMIZATION ENFORCED: No personal financial records or transaction data were attached to this query.]\n"
             )
@@ -992,7 +992,7 @@ class AIService:
         notice = "" if self.is_configured() else "\n\n*(💡 Set GEMINI_API_KEY in .env for full conversational AI)*"
         advice_disclaimer = (
             f"\n\n*(ℹ️ Informational guidance based on your recorded surplus of {ctx['cur_net']}. "
-            f"Assumes all recent expenses have been logged. Spendora provides informational analytics, not certified financial or tax advice.)*"
+            f"Assumes all recent expenses have been logged. Leaksee provides informational analytics, not certified financial or tax advice.)*"
         )
         curr = ctx["currency"]
 
@@ -1297,7 +1297,7 @@ class AIService:
         # 13. Greetings / Help / Default Overview
         if any(kw in q for kw in ["hi", "hello", "hey", "who are you", "what can you do", "help"]):
             reply = (
-                f"Hello {ctx['user_name']}! 👋 I am your **Spendora AI Personal Financial Concierge**.\n\n"
+                f"Hello {ctx['user_name']}! 👋 I am your **Leaksee AI Personal Financial Concierge**.\n\n"
                 f"I'm plugged directly into your live financial data to help you save and plan smarter:\n\n"
                 f"• 💬 **Ask anything**: *'Can I afford a ₹15,000 phone?'*, *'How is my 50-30-20 split?'*\n"
                 f"• ⚡ **Auto-Log Expenses**: Type *'Spent ₹350 on lunch'* or *'Paid 1500 for electricity'*\n"

@@ -310,7 +310,7 @@ class TestAIService:
         user_id = ai_seed_user["user_id"]
 
         assert len(service._conversation_history) == 0
-        service.chat("Hello Spendora AI", user_id=user_id)
+        service.chat("Hello Leaksee AI", user_id=user_id)
         assert len(service._conversation_history) == 2  # user + assistant
 
         service.chat("What is my burn rate?", user_id=user_id)

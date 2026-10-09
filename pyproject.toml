@@ -1,7 +1,7 @@
 [project]
-name = "spendora"
+name = "leaksee"
 version = "1.0.0"
-description = "Spendora — Privacy-First AI Personal Expense Tracker"
+description = "Leaksee — Privacy-First AI Personal Expense Tracker"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -20,28 +20,52 @@ dev = [
 ]
 
 [tool.flet]
-org = "org.spendora"
-product = "Spendora"
-company = "Spendora"
-copyright = "Copyright (C) 2026 Spendora"
+org = "org.leaksee"
+product = "Leaksee"
+company = "Leaksee"
+copyright = "Copyright (C) 2026 Leaksee"
 
 [tool.flet.app]
 path = "."
+module = "main"
 exclude = [
     "data",
     "tests",
     "docs",
-    "*.csv",
-    "*.db",
-    ".env*",
     "requirements-dev.txt",
     "stitch_ai_personal_expense_tracker",
     "web_ui",
+    ".pytest_cache",
+    ".git",
+    "__pycache__",
+    "assets/test_icon.png",
+    "assets/test_icon_clean.png",
+    "assets/leaksee_original.jpg",
+]
+
+[tool.flet.cleanup]
+app = true
+packages = true
+app_files = [
+    "*.db",
+    "*.db-*",
+    "*.sqlite",
+    "*.sqlite3",
+    "*.csv",
+    ".env*",
+    "*.log",
+    ".coverage",
+    "htmlcov",
+]
+package_files = [
+    "*.pyi",
+    "*.typed",
 ]
 
 [tool.flet.android]
-package = "org.spendora.spendora"
+package = "org.leaksee.leaksee"
 build_number = 1
+target_arch = ["arm64-v8a"]
 permissions = [
     "android.permission.INTERNET",
 ]

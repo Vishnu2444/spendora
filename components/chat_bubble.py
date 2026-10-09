@@ -73,14 +73,16 @@ def build_chat_bubble(
             ],
         )
     else:
+        from config.theme_manager import theme_manager
+        is_dark = theme_manager.is_dark()
         avatar = ft.Container(
             width=36,
             height=36,
             border_radius=18,
-            bgcolor=COLOR_SURFACE_CONTAINER,
-            border=ft.Border.all(1, COLOR_OUTLINE_VARIANT),
+            bgcolor="#222B3D" if is_dark else COLOR_SURFACE_CONTAINER,
+            border=ft.Border.all(1, "#334155" if is_dark else COLOR_OUTLINE_VARIANT),
             alignment=ft.Alignment.CENTER,
-            content=ft.Icon(ft.Icons.AUTO_AWESOME, color=COLOR_PRIMARY, size=18),
+            content=ft.Icon(ft.Icons.AUTO_AWESOME, color="#C0C1FF" if is_dark else COLOR_PRIMARY, size=18),
         )
 
         header_controls = [
@@ -171,7 +173,8 @@ def build_chat_bubble(
             )
 
         bubble = ft.Container(
-            bgcolor=COLOR_SURFACE_CONTAINER,
+            bgcolor="#1C2333" if is_dark else COLOR_SURFACE_CONTAINER,
+            border=ft.Border.all(1, "#262E40" if is_dark else COLOR_OUTLINE_VARIANT),
             border_radius=ft.BorderRadius.only(
                 top_left=16, top_right=16, bottom_left=4, bottom_right=16,
             ),

@@ -1,9 +1,9 @@
 """
-Spendora — Welcome Onboarding Screen (Flet).
+Leaksee — Welcome Onboarding Screen (Flet).
 
-Matches Google Stitch "SPENDORA · STEP 1 OF 2":
+Matches "LEAKSEE · STEP 1 OF 2":
 - Step tracker pill & 50% progress bar
-- Title: "Welcome to SPENDORA 👋"
+- Title: "Welcome to LEAKSEE 👋"
 - Full Name with verified badge
 - Profession selector chips (Software Engineer, Freelancer, Business Owner, etc.)
 - 2-Column Age & Monthly Income
@@ -56,7 +56,7 @@ class WelcomeView:
         self._page: Optional[ft.Page] = None
 
         # Form values
-        self._selected_profession = "Software Engineer"
+        self._selected_profession = None
         self._selected_currency = "INR"
 
         # Theme toggle icon
@@ -71,23 +71,17 @@ class WelcomeView:
 
         # Controls
         self._name_field = ft.TextField(
-            value="Vishnu",
+            value="",
             hint_text="Enter your full name",
             border_color=COLOR_OUTLINE_VARIANT,
             focused_border_color=COLOR_PRIMARY,
             border_radius=16,
             bgcolor=COLOR_SURFACE_CARD,
             text_style=ft.TextStyle(color=COLOR_ON_SURFACE, size=15, weight=ft.FontWeight.W_500),
-            suffix=ft.Container(
-                bgcolor=f"{COLOR_EMERALD_ACCENT}15",
-                border_radius=12,
-                padding=ft.Padding.all(4),
-                content=ft.Icon(ft.Icons.CHECK, color=COLOR_EMERALD_ACCENT, size=16),
-            ),
         )
 
         self._age_field = ft.TextField(
-            value="26 yrs",
+            value="",
             hint_text="e.g. 26",
             border_color=COLOR_OUTLINE_VARIANT,
             focused_border_color=COLOR_PRIMARY,
@@ -98,7 +92,7 @@ class WelcomeView:
         )
 
         self._income_field = ft.TextField(
-            value="₹ 60,000 / mo",
+            value="",
             hint_text="₹ Amount",
             border_color=COLOR_OUTLINE_VARIANT,
             focused_border_color=COLOR_PRIMARY,
@@ -109,7 +103,7 @@ class WelcomeView:
         )
 
         self._city_field = ft.TextField(
-            value="Bengaluru, India",
+            value="",
             hint_text="City, Country",
             border_color=COLOR_OUTLINE_VARIANT,
             focused_border_color=COLOR_PRIMARY,
@@ -123,6 +117,31 @@ class WelcomeView:
         self._error_text = ft.Text("", color=COLOR_ERROR, size=12, visible=False)
         self._prof_chips_row = ft.Row(wrap=True, spacing=8, run_spacing=8)
         self._curr_chips_row = ft.Row(spacing=8)
+
+        self._custom_prof_field = ft.TextField(
+            value="",
+            hint_text="e.g. Graphic Designer, Teacher, Architect...",
+            border_color=COLOR_OUTLINE_VARIANT,
+            focused_border_color=COLOR_PRIMARY,
+            border_radius=16,
+            bgcolor=COLOR_SURFACE_CARD,
+            text_style=ft.TextStyle(color=COLOR_ON_SURFACE, size=14),
+            prefix_icon=ft.Icons.WORK_OUTLINE,
+        )
+        self._custom_prof_container = ft.Column(
+            spacing=6,
+            visible=False,
+            controls=[
+                ft.Row(
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    controls=[
+                        ft.Text("Specify Your Profession *", size=13, weight=ft.FontWeight.W_600, color=COLOR_ON_SURFACE),
+                        ft.Text("Custom", size=11, weight=ft.FontWeight.W_600, color=COLOR_PRIMARY),
+                    ],
+                ),
+                self._custom_prof_field,
+            ],
+        )
 
     def set_page(self, page: ft.Page) -> None:
         self._page = page
@@ -144,6 +163,12 @@ class WelcomeView:
     def _select_profession(self, prof: str) -> None:
         self._selected_profession = prof
         self._build_prof_chips()
+        if hasattr(self, "_custom_prof_container") and self._custom_prof_container:
+            self._custom_prof_container.visible = (prof == "Others")
+            try:
+                self._custom_prof_container.update()
+            except Exception:
+                pass
         try:
             self._prof_chips_row.update()
         except Exception:
@@ -272,7 +297,7 @@ class WelcomeView:
                         bgcolor=COLOR_PRIMARY_CONTAINER,
                     ),
                     ft.Text(
-                        "SPENDORA · STEP 1 OF 2",
+                        "LEAKSEE · STEP 1 OF 2",
                         size=11,
                         weight=ft.FontWeight.W_700,
                         color=COLOR_PRIMARY,
@@ -304,18 +329,25 @@ class WelcomeView:
             controls=[
                 ft.Row(
                     spacing=8,
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
                     controls=[
+                        ft.Image(
+                            src="icon.png",
+                            width=30,
+                            height=30,
+                            fit="contain",
+                        ),
                         ft.Text(
-                            "Welcome to SPENDORA",
-                            size=24,
+                            "Welcome to LEAKSEE",
+                            size=22,
                             weight=ft.FontWeight.W_800,
                             color=COLOR_ON_SURFACE,
                         ),
-                        ft.Text("👋", size=24),
+                        ft.Text("👋", size=22),
                     ],
                 ),
                 ft.Text(
-                    "Let's set up your personalized ledger and Spendora AI smart predictions.",
+                    "Let's set up your personalized ledger and Leaksee AI smart predictions.",
                     size=14,
                     color=COLOR_ON_SURFACE_VARIANT,
                 ),
@@ -410,6 +442,7 @@ class WelcomeView:
                     controls=[
                         ft.Text("Profession *", size=13, weight=ft.FontWeight.W_600, color=COLOR_ON_SURFACE),
                         self._prof_chips_row,
+                        self._custom_prof_container,
                     ],
                 ),
                 # 2-col Age & Income
@@ -470,14 +503,35 @@ class WelcomeView:
         return self._main_container
 
     def _on_skip(self, e) -> None:
+        name = (self._name_field.value or "").strip()
+        if not name:
+            self._error_text.value = "Please enter your name before continuing."
+            self._error_text.visible = True
+            try:
+                self._error_text.update()
+            except Exception:
+                pass
+            return
         try:
             if not self._profile_service.has_profile():
-                self._profile_service.create_profile(
-                    name="Vishnu",
-                    profession="Software Engineer",
+                prof = self._selected_profession or PROFESSIONS[0]
+                custom_prof = None
+                if prof in ("Others", "Other"):
+                    custom_prof = (self._custom_prof_field.value or "").strip() or "General"
+                    prof = "Other"
+                user = self._profile_service.create_profile(
+                    name=name,
+                    profession=prof,
+                    profession_custom=custom_prof,
                     currency=self._selected_currency or DEFAULT_CURRENCY,
-                    monthly_income_str="60000",
+                    monthly_income_str=(self._income_field.value or "").strip() or None,
                 )
+                city_val = (self._city_field.value or "").strip()
+                if city_val and hasattr(self._profile_service, "set_preference"):
+                    self._profile_service.set_preference(user.id, "user_location", city_val)
+                age_val = (self._age_field.value or "").strip()
+                if age_val and hasattr(self._profile_service, "set_preference"):
+                    self._profile_service.set_preference(user.id, "user_age", age_val)
         except Exception as ex:
             logger.debug("Skip fallback profile creation: %s", ex)
         self._on_complete()
@@ -493,12 +547,44 @@ class WelcomeView:
                 pass
             return
 
+        if not self._selected_profession:
+            self._error_text.value = "Please select your profession."
+            self._error_text.visible = True
+            try:
+                self._error_text.update()
+            except Exception:
+                pass
+            return
+
+        prof = self._selected_profession
+        custom_prof = None
+        if prof in ("Others", "Other"):
+            custom_prof = (self._custom_prof_field.value or "").strip()
+            if not custom_prof:
+                self._error_text.value = "Please enter your custom profession."
+                self._error_text.visible = True
+                try:
+                    self._error_text.update()
+                except Exception:
+                    pass
+                return
+            prof = "Other"
+
         try:
-            self._profile_service.create_profile(
+            user = self._profile_service.create_profile(
                 name=name,
-                profession=self._selected_profession,
+                profession=prof,
+                profession_custom=custom_prof,
                 currency=self._selected_currency or DEFAULT_CURRENCY,
+                monthly_income_str=(self._income_field.value or "").strip() or None,
             )
+            city_val = (self._city_field.value or "").strip()
+            if city_val and hasattr(self._profile_service, "set_preference"):
+                self._profile_service.set_preference(user.id, "user_location", city_val)
+            age_val = (self._age_field.value or "").strip()
+            if age_val and hasattr(self._profile_service, "set_preference"):
+                self._profile_service.set_preference(user.id, "user_age", age_val)
+
             self._on_complete()
         except Exception as ex:
             logger.error("Failed to create profile: %s", ex, exc_info=True)
